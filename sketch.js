@@ -1,37 +1,73 @@
-// Variables
-let astronaut;
-let obstacles = [];
-let stardust = [];
-let airSupply = 150;
-let level = 1;
+// =====================
+// VARIABLES
+// =====================
 let astronautX = 150;
 let astronautY = 400;
 let speed = 5;
+
 let obstacleX = 1200;
-let groundOffset = 0;
-let gameSpeed = 5;
-let lastSecond = 0;
+let obstacleSize = 50;
+
+let airSupply = 150;
 let distance = 1000;
 
+let gameSpeed = 5;
+let groundOffset = 0;
+
+let stars = [];
+
+// =====================
+// SETUP
+// =====================
 function setup() {
   createCanvas(1200, 600);
+
+  // Pre-generate stars (prevents flickering)
+  for (let i = 0; i < 50; i++) {
+    stars.push({
+      x: random(width),
+      y: random(height)
+    });
+  }
 }
 
+// =====================
+// MAIN LOOP
+// =====================
 function draw() {
   background(10, 20, 50);
 
+  drawMars();
+  updateAstronaut();
   drawObstacles();
 
+  drawUI();
+
+  // Game progression
   distance -= 0.5;
 
-  // Draw current level
-  if (level === 1) {
-    drawMars();
+  if (millis() % 1000 < 16) {
+    airSupply--;
   }
 
-  // Draw astronaut
-  function updateAstronaut() {
+  // Win / lose conditions
+  if (airSupply <= 0) {
+    drawLoseScreen();
+    noLoop();
+    return;
+  }
 
+  if (distance <= 0) {
+    drawWinScreen();
+    noLoop();
+    return;
+  }
+}
+
+// =====================
+// PLAYER
+// =====================
+function updateAstronaut() {
   if (keyIsDown(87) || keyIsDown(UP_ARROW)) {
     astronautY -= speed;
   }
@@ -46,37 +82,15 @@ function draw() {
   rect(astronautX, astronautY, 50, 80);
 }
 
-  // UI
-  drawAirSupply();
-  drawDistance();
-
-  if (millis() - lastSecond > 1000) {
-  airSupply--;
-  lastSecond = millis();
-}
-    if (airSupply <= 0) {
-    drawLoseScreen();
-    return;
-}
-if (distance <= 0) {
-  drawWinScreen();
-  return;
-}
-
-}
-
-// Environment Functions
+// =====================
+// ENVIRONMENT
+// =====================
 function drawMars() {
-
-  // Sky
-  background(10, 20, 50);
-
   // Stars
   fill(255);
   noStroke();
-
-  for (let i = 0; i < 50; i++) {
-    circle((i * 25 + groundOffset * 0.2) % width, random(height), 2);
+  for (let s of stars) {
+    circle((s.x + groundOffset * 0.2) % width, s.y, 2);
   }
 
   // Ground
@@ -98,60 +112,48 @@ function drawMars() {
   groundOffset -= gameSpeed;
 }
 
-//Obstacles
+// =====================
+// OBSTACLES
+// =====================
 function drawObstacles() {
-
   fill(120);
+  rect(obstacleX, 450, obstacleSize, obstacleSize);
 
-  rect(obstacleX, 450, 50, 50);
-
-  obstacleX -= 5;
+  obstacleX -= gameSpeed;
 
   if (obstacleX < -50) {
     obstacleX = width;
   }
 
-  if (
-  astronautX + 50 > obstacleX &&
-  astronautX < obstacleX + 50 &&
-  astronautY + 80 > 450
-) {
-  airSupply--;
-}
+  // Collision detection
+  let hit =
+    astronautX + 50 > obstacleX &&
+    astronautX < obstacleX + obstacleSize &&
+    astronautY + 80 > 450;
+
+  if (hit) {
+    airSupply -= 1;
+  }
 }
 
-// Player Functions
-function updateAstronaut() {
-  fill(255);
-  rect(150, 400, 50, 80);
-}
-
-// UI Functions
-function drawAirSupply() {
+// =====================
+// UI
+// =====================
+function drawUI() {
   fill(255);
   textSize(24);
+
   text("Air Supply: " + airSupply, 20, 40);
+
+  text("Distance: " + floor(distance) + "m", 900, 40);
 }
 
-function drawDistance() {
-
-  fill(255);
-
-  textSize(24);
-
-  text(
-    "Distance: " + floor(distance) + "m",
-    900,
-    40
-  );
-}
-
+// =====================
+// WIN / LOSE SCREENS
+// =====================
 function drawLoseScreen() {
-
   background(0);
-
   fill(255, 0, 0);
-
   textSize(50);
   textAlign(CENTER);
 
@@ -159,17 +161,10 @@ function drawLoseScreen() {
 }
 
 function drawWinScreen() {
-
   background(0);
-
   fill(0, 255, 0);
-
-  textAlign(CENTER);
   textSize(50);
+  textAlign(CENTER);
 
-  text(
-    "MISSION ACCOMPLISHED!",
-    width / 2,
-    height / 2
-  );
+  text("MISSION ACCOMPLISHED!", width / 2, height / 2);
 }
