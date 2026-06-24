@@ -1,21 +1,29 @@
 // =====================
 // VARIABLES
 // =====================
-let astronautX = 150;
+let astronautX = 75;
 let astronautY = 400;
-let speed = 5;
+let speed = 2; // EDIT 6: gives astronaut lower gravity feel
 
-let obstacleX = 1200;
+let obstacles = []; // EDIT 1: allows for more obstacles at once
 let obstacleSize = 50;
+let obstacleCount = 6; // EDIT 1
 
-let airSupply = 150;
-let distance = 1000;
+let airSupply = 90; // EDIT 4: can only hit obstcales 3 times MAX
+
+// EDIT 6: every 400m, one new obstacle is added
+let startingDistance = 2000;
+let distance = startingDistance;
+let nextObstacleIncreaseAt = 400;
 
 let gameSpeed = 5;
 let groundOffset = 0;
 
 let stars = [];
 let lastAirDrain = 0; // FIX 1: timer for air drain
+let lastObstacleHitTime = -2000; // EDIT 2: turns air supply red when hit
+let lastDamageTime = 0; // EDIT 1
+let damageCooldown = 200; // EDIT 1
 
 // =====================
 // SETUP
@@ -23,10 +31,18 @@ let lastAirDrain = 0; // FIX 1: timer for air drain
 function setup() {
   createCanvas(1200, 600);
 
+  // EDIT 1
+  for (let i = 0; i < obstacleCount; i++) {
+    obstacles.push({
+      x: width + i * 500,
+      y: random(0, 450),
+    });
+  }
+
   for (let i = 0; i < 50; i++) {
     stars.push({
       x: random(width),
-      y: random(height)
+      y: random(height),
     });
   }
 }
@@ -43,6 +59,17 @@ function draw() {
   drawUI();
 
   distance -= 0.5;
+
+  // EDIT 6: every 400m, one new obstacle is added
+  let depletedDistance = startingDistance - distance;
+  while (depletedDistance >= nextObstacleIncreaseAt) {
+    obstacleCount++;
+    obstacles.push({
+      x: width + random(150, 400),
+      y: random(50, 450),
+    });
+    nextObstacleIncreaseAt += 400;
+  }
 
   // FIX 1: drain air every 1 second using a reliable timer
   if (millis() - lastAirDrain > 1000) {
@@ -88,18 +115,19 @@ function drawMars() {
   fill(255);
   noStroke();
   for (let s of stars) {
-    circle((s.x + groundOffset * 0.2) % width, s.y, 2);
+    // EDIT 5: stars last the whole game
+    circle((((s.x + groundOffset * 0.2) % width) + width) % width, s.y, 2);
   }
 
   fill(180, 80, 50);
   for (let x = -100; x < width + 100; x += 100) {
     triangle(
-      x + ((groundOffset % 100) + 100) % 100,       // FIX 3: keep offset in range
+      x + (((groundOffset % 100) + 100) % 100), // FIX 3: keep offset in range
       500,
-      x + 50 + ((groundOffset % 100) + 100) % 100,
+      x + 50 + (((groundOffset % 100) + 100) % 100),
       430,
-      x + 100 + ((groundOffset % 100) + 100) % 100,
-      500
+      x + 100 + (((groundOffset % 100) + 100) % 100),
+      500,
     );
   }
 
@@ -117,23 +145,30 @@ function drawMars() {
 function drawObstacles() {
   noStroke(); // FIX 5
   fill(120);
-  rect(obstacleX, 450, obstacleSize, obstacleSize);
+  //
+  for (let ob of obstacles) {
+    rect(ob.x, ob.y, obstacleSize, obstacleSize);
 
-  obstacleX -= gameSpeed;
+    ob.x -= gameSpeed; // EDIT 1
 
-  if (obstacleX < -50) {
-    obstacleX = width;
-  }
+    // EDIT 1
+    if (ob.x < -obstacleSize) {
+      ob.x = width + random(150, 500);
+      ob.y = random(50, 450);
+    }
 
-  // FIX 2: proper AABB collision (all four sides)
-  let hit =
-    astronautX + 50 > obstacleX &&
-    astronautX < obstacleX + obstacleSize &&
-    astronautY + 80 > 450 &&
-    astronautY < 450 + obstacleSize;
+    // FIX 2: proper AABB collision (all four sides)
+    let hit =
+      astronautX + 50 > ob.x &&
+      astronautX < ob.x + obstacleSize &&
+      astronautY + 80 > ob.y &&
+      astronautY < ob.y + obstacleSize;
 
-  if (hit) {
-    airSupply -= 1;
+    // EDIT 1
+    if (hit) {
+      airSupply -= 0.5;
+      lastObstacleHitTime = millis();
+    }
   }
 }
 
@@ -142,11 +177,19 @@ function drawObstacles() {
 // =====================
 function drawUI() {
   noStroke();
-  fill(255);
   textSize(24);
   textAlign(LEFT); // FIX 4: explicitly set alignment for UI
-  text("Air Supply: " + airSupply, 20, 40);
-  text("Distance: " + floor(distance) + "m", 900, 40);
+
+  // Air stays red permanently at 10 or below; otherwise flash red briefly on hit.
+  if (airSupply <= 10 || millis() - lastObstacleHitTime < 0.6) {
+    fill(255, 0, 0);
+  } else {
+    fill(255);
+  }
+  text("Air Supply: " + floor(airSupply), 20, 40); // EDIT 5: stars last for entirety
+
+  fill(255);
+  text("Distance to Target: " + floor(distance) + "m", 900, 40);
 }
 
 // =====================
