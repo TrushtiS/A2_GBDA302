@@ -3,7 +3,7 @@
 // =====================
 let astronautX = 75;
 let astronautY = 400;
-let speed = 2; // EDIT 6: gives astronaut lower gravity feel
+let speed = 1.5; // EDIT 6: gives astronaut lower gravity feel
 
 // Obstacles array — each has x, y, w, h
 let obstacles = [];
