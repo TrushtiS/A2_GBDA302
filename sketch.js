@@ -1,57 +1,66 @@
 // =====================
 // VARIABLES
 // =====================
-let astronautX = 75;
+let astronautX = 150;
 let astronautY = 400;
-let speed = 1.5; // EDIT 6: gives astronaut lower gravity feel
+let speed = 2; // EDIT 6: gives astronaut lower gravity feel
 
 // Obstacles array — each has x, y, w, h
 let obstacles = [];
 let obstacleTimer = 0;
 let obstacleInterval = 120; // frames between spawns
-
-let airSupply = 90; // EDIT 4: can only hit obstcales 3 times MAX
-
-// EDIT 6: every 400m, one new obstacle is added
-let startingDistance = 2000;
-let distance = startingDistance;
-let nextObstacleIncreaseAt = 400;
 let obstaclesPerWave = 1;
+let nextObstacleIncreaseAt = 400;
+
+let airSupply = 100;
+let distance = 1500;
+const startingDistance = distance;
 
 let gameSpeed = 5;
 let groundOffset = 0;
 
 let stars = [];
 let lastAirDrain = 0;
-let airPuffs = [];
 
 // Game states: "tutorial", "playing", "win", "lose"
 let gameState = "tutorial";
 let tutorialPage = 0;
 const TUTORIAL_PAGES = 4;
 
-// Sound (Web Audio API)
-let audioCtx = null;
+//Sound
+let bgMusic;
+let hitSound;
 
 // Obstacle Y positions (3 heights): ground, mid, high
-const OBS_HEIGHTS = [50, 250, 375];
+const OBS_HEIGHTS = [380, 235, 70];
 
-// Initial obstacle count
-let obstacleCount = 0;
+// =====================
+// AUDIO ASSETS
+// =====================
+function preload() {
+  bgMusic = loadSound("assets/sounds/background_music_level1.mp3");
+
+  hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
+}
+// Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
+function sfxHit() {
+  if (hitSound) {
+    hitSound.play();
+  }
+}
+
+// Stops background music and resets it to the beginning
+function stopMusic() {
+  if (bgMusic && bgMusic.isPlaying()) {
+    bgMusic.stop();
+  }
+}
 
 // =====================
 // SETUP
 // =====================
 function setup() {
   createCanvas(1200, 600);
-
-  // EDIT 1
-  for (let i = 0; i < obstacleCount; i++) {
-    obstacles.push({
-      x: width + i * 500,
-      y: random(0, 450),
-    });
-  }
 
   for (let i = 0; i < 50; i++) {
     stars.push({
@@ -60,90 +69,19 @@ function setup() {
     });
   }
 
+  if (!bgMusic.isPlaying()) {
+    bgMusic.setVolume(0.4);
+    bgMusic.loop();
+  }
+
   // Spawn first obstacle
   spawnObstacle();
 }
 
 // =====================
-// SOUND HELPERS
-// =====================
-function getAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioCtx;
-}
-
-function playTone(freq, type, vol, attack, decay, when) {
-  let ac = getAudio();
-  let t = when || ac.currentTime;
-  let osc = ac.createOscillator();
-  let gain = ac.createGain();
-  osc.connect(gain);
-  gain.connect(ac.destination);
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(vol, t + attack);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-  osc.start(t);
-  osc.stop(t + attack + decay + 0.05);
-}
-
-function sfxHit() {
-  playTone(80, "sawtooth", 0.4, 0.01, 0.15);
-  playTone(120, "square", 0.2, 0.01, 0.1);
-}
-
-function sfxAirDrain() {
-  let ac = getAudio();
-  let t = ac.currentTime;
-  let bufLen = ac.sampleRate * 0.12;
-  let buf = ac.createBuffer(1, bufLen, ac.sampleRate);
-  let data = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) {
-    data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen) * 0.15;
-  }
-  let src = ac.createBufferSource();
-  src.buffer = buf;
-  let filt = ac.createBiquadFilter();
-  filt.type = "bandpass";
-  filt.frequency.value = 800;
-  src.connect(filt);
-  filt.connect(ac.destination);
-  src.start(t);
-}
-
-function sfxWin() {
-  let ac = getAudio();
-  let notes = [
-    [523, 0],
-    [659, 0.15],
-    [784, 0.3],
-    [1047, 0.45],
-  ];
-  for (let [f, d] of notes) {
-    playTone(f, "sine", 0.3, 0.02, 0.2, ac.currentTime + d);
-  }
-}
-
-function sfxLose() {
-  let ac = getAudio();
-  let notes = [
-    [440, 0],
-    [330, 0.2],
-    [220, 0.4],
-    [110, 0.65],
-  ];
-  for (let [f, d] of notes) {
-    playTone(f, "sawtooth", 0.25, 0.02, 0.25, ac.currentTime + d);
-  }
-}
-
-// =====================
 // OBSTACLE SPAWNING
 // =====================
-function spawnObstacle(xOffset = 20) {
+function spawnObstacle(xOffset = 0) {
   let yPos = random(OBS_HEIGHTS);
   let sizes = [
     { w: 40, h: 50 },
@@ -152,7 +90,7 @@ function spawnObstacle(xOffset = 20) {
   ];
   let s = random(sizes);
   obstacles.push({
-    x: width + xOffset,
+    x: width + 20 + xOffset,
     y: yPos,
     w: s.w,
     h: s.h,
@@ -172,13 +110,12 @@ function draw() {
 
   drawMars();
   updateAstronaut();
-  drawAirPuffs();
   drawObstacles();
   drawUI();
 
   distance -= 0.5;
 
-  // Every 400m travelled, increase the number of obstacles in each spawn wave.
+  // Add one extra obstacle to each spawn wave every 400m traveled.
   let distanceTravelled = startingDistance - distance;
   if (distanceTravelled >= nextObstacleIncreaseAt) {
     obstaclesPerWave++;
@@ -188,8 +125,6 @@ function draw() {
   // Drain air every 1 second
   if (millis() - lastAirDrain > 1000) {
     airSupply--;
-    sfxAirDrain();
-    spawnAirPuff();
     lastAirDrain = millis();
   }
 
@@ -197,7 +132,7 @@ function draw() {
   obstacleTimer++;
   if (obstacleTimer >= obstacleInterval) {
     for (let i = 0; i < obstaclesPerWave; i++) {
-      spawnObstacle(20 + i * 140);
+      spawnObstacle(i * 120);
     }
     obstacleTimer = 0;
     // Slightly randomise next interval so it doesn't feel robotic
@@ -205,45 +140,17 @@ function draw() {
   }
 
   if (airSupply <= 0) {
-    sfxLose();
+    stopMusic();
     drawLoseScreen();
     noLoop();
     return;
   }
 
   if (distance <= 0) {
-    sfxWin();
+    stopMusic();
     drawWinScreen();
     noLoop();
     return;
-  }
-}
-
-function spawnAirPuff() {
-  airPuffs.push({
-    x: astronautX - 4,
-    y: astronautY + 40 + random(-6, 6),
-    r: random(4, 7),
-    alpha: 120,
-    vx: random(4.5, 6),
-  });
-}
-
-function drawAirPuffs() {
-  noStroke();
-
-  for (let i = airPuffs.length - 1; i >= 0; i--) {
-    let p = airPuffs[i];
-
-    fill(255, 255, 255, p.alpha);
-    circle(p.x, p.y, p.r * 2);
-
-    p.x -= p.vx;
-    p.alpha -= 2.5;
-
-    if (p.x < -20 || p.alpha <= 0) {
-      airPuffs.splice(i, 1);
-    }
   }
 }
 
@@ -272,8 +179,8 @@ function drawMars() {
   fill(255);
   noStroke();
   for (let s of stars) {
-    // EDIT 5: stars last the whole game
-    circle((((s.x + groundOffset * 0.2) % width) + width) % width, s.y, 2);
+    let wrappedX = (((s.x + groundOffset * 0.2) % width) + width) % width;
+    circle(wrappedX, s.y, 2);
   }
 
   fill(180, 80, 50);
@@ -681,7 +588,7 @@ function mousePressed() {
   if (gameState !== "tutorial") return;
 
   // Unlock audio on first interaction
-  getAudio();
+  userStartAudio();
 
   let cx = width / 2;
 
