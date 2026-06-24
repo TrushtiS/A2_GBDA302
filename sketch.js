@@ -20,6 +20,7 @@ let gameSpeed = 5;
 let groundOffset = 0;
 
 let stars = [];
+let airPulses = [];
 let lastAirDrain = 0;
 
 // Game states: "tutorial", "playing", "win", "lose"
@@ -110,6 +111,7 @@ function draw() {
 
   drawMars();
   updateAstronaut();
+  drawAirPulses();
   drawObstacles();
   drawUI();
 
@@ -125,6 +127,7 @@ function draw() {
   // Drain air every 1 second
   if (millis() - lastAirDrain > 1000) {
     airSupply--;
+    spawnAirPulse();
     lastAirDrain = millis();
   }
 
@@ -170,6 +173,35 @@ function updateAstronaut() {
   noStroke();
   fill(255);
   rect(astronautX, astronautY, 50, 80);
+}
+
+function spawnAirPulse() {
+  airPulses.push({
+    x: astronautX,
+    y: astronautY + 40 + random(-6, 6),
+    size: 15,
+    alpha: 120,
+    speedX: 7,
+  });
+}
+
+function drawAirPulses() {
+  noStroke();
+
+  for (let i = airPulses.length - 1; i >= 0; i--) {
+    let p = airPulses[i];
+
+    fill(180, 220, 255, p.alpha);
+    circle(p.x, p.y, p.size);
+
+    p.x -= p.speedX;
+    p.alpha -= 3;
+    p.size += 0.2;
+
+    if (p.alpha <= 0 || p.x < -20) {
+      airPulses.splice(i, 1);
+    }
+  }
 }
 
 // =====================
