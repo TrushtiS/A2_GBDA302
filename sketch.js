@@ -16,12 +16,14 @@ let airSupply = 90; // EDIT 4: can only hit obstcales 3 times MAX
 let startingDistance = 2000;
 let distance = startingDistance;
 let nextObstacleIncreaseAt = 400;
+let obstaclesPerWave = 1;
 
 let gameSpeed = 5;
 let groundOffset = 0;
 
 let stars = [];
 let lastAirDrain = 0;
+let airPuffs = [];
 
 // Game states: "tutorial", "playing", "win", "lose"
 let gameState = "tutorial";
@@ -32,7 +34,10 @@ const TUTORIAL_PAGES = 4;
 let audioCtx = null;
 
 // Obstacle Y positions (3 heights): ground, mid, high
-const OBS_HEIGHTS = [450, 370, 290];
+const OBS_HEIGHTS = [50, 250, 375];
+
+// Initial obstacle count
+let obstacleCount = 0;
 
 // =====================
 // SETUP
@@ -138,7 +143,7 @@ function sfxLose() {
 // =====================
 // OBSTACLE SPAWNING
 // =====================
-function spawnObstacle() {
+function spawnObstacle(xOffset = 20) {
   let yPos = random(OBS_HEIGHTS);
   let sizes = [
     { w: 40, h: 50 },
@@ -147,7 +152,7 @@ function spawnObstacle() {
   ];
   let s = random(sizes);
   obstacles.push({
-    x: width + 20,
+    x: width + xOffset,
     y: yPos,
     w: s.w,
     h: s.h,
@@ -167,22 +172,33 @@ function draw() {
 
   drawMars();
   updateAstronaut();
+  drawAirPuffs();
   drawObstacles();
   drawUI();
 
   distance -= 0.5;
 
+  // Every 400m travelled, increase the number of obstacles in each spawn wave.
+  let distanceTravelled = startingDistance - distance;
+  if (distanceTravelled >= nextObstacleIncreaseAt) {
+    obstaclesPerWave++;
+    nextObstacleIncreaseAt += 400;
+  }
+
   // Drain air every 1 second
   if (millis() - lastAirDrain > 1000) {
     airSupply--;
     sfxAirDrain();
+    spawnAirPuff();
     lastAirDrain = millis();
   }
 
   // Spawn obstacles on a timer
   obstacleTimer++;
   if (obstacleTimer >= obstacleInterval) {
-    spawnObstacle();
+    for (let i = 0; i < obstaclesPerWave; i++) {
+      spawnObstacle(20 + i * 140);
+    }
     obstacleTimer = 0;
     // Slightly randomise next interval so it doesn't feel robotic
     obstacleInterval = floor(random(90, 160));
@@ -200,6 +216,34 @@ function draw() {
     drawWinScreen();
     noLoop();
     return;
+  }
+}
+
+function spawnAirPuff() {
+  airPuffs.push({
+    x: astronautX - 4,
+    y: astronautY + 40 + random(-6, 6),
+    r: random(4, 7),
+    alpha: 120,
+    vx: random(4.5, 6),
+  });
+}
+
+function drawAirPuffs() {
+  noStroke();
+
+  for (let i = airPuffs.length - 1; i >= 0; i--) {
+    let p = airPuffs[i];
+
+    fill(255, 255, 255, p.alpha);
+    circle(p.x, p.y, p.r * 2);
+
+    p.x -= p.vx;
+    p.alpha -= 2.5;
+
+    if (p.x < -20 || p.alpha <= 0) {
+      airPuffs.splice(i, 1);
+    }
   }
 }
 
@@ -316,7 +360,7 @@ function drawUI() {
   // Distance
   textSize(24);
   textAlign(LEFT);
-  text("Distance: " + floor(distance) + "m", 900, 40);
+  text("Distance to Target: " + floor(distance) + "m", 900, 40);
 }
 
 // =====================
