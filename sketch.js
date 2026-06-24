@@ -49,8 +49,9 @@ function sfxHit() {
  
 // Stops background music and resets it to the beginning
 function stopMusic() {
-  bgMusic.pause();
-  bgMusic.currentTime = 0;
+  if (bgMusic) {
+    bgMusic.stop();
+  }
 }
 
 
@@ -66,11 +67,6 @@ function setup() {
       y: random(height)
     });
   }
-
-  if (!bgMusic.isPlaying()) {
-  bgMusic.setVolume(0.4);
-  bgMusic.loop();
-}
 
   // Spawn first obstacle
   spawnObstacle();
@@ -350,7 +346,7 @@ function drawTutorial() {
   if (tutorialPage < TUTORIAL_PAGES - 1) {
     text("Next →", width / 2 + 270, 487);
   } else {
-    text("Start!", width / 2 + 270, 487);
+  text("Start!", width / 2 + 270, 487);
   }
 }
 
@@ -546,7 +542,7 @@ function mousePressed() {
   if (gameState !== "tutorial") return;
 
   // Unlock audio on first interaction
-  getAudio();
+  userStartAudio();
 
   let cx = width / 2;
 
