@@ -49,9 +49,8 @@ function sfxHit() {
  
 // Stops background music and resets it to the beginning
 function stopMusic() {
-  if (bgMusic) {
-    bgMusic.stop();
-  }
+  bgMusic.pause();
+  bgMusic.currentTime = 0;
 }
 
 
@@ -547,7 +546,7 @@ function mousePressed() {
   if (gameState !== "tutorial") return;
 
   // Unlock audio on first interaction
-  userStartAudio();
+  getAudio();
 
   let cx = width / 2;
 
