@@ -1,21 +1,17 @@
 // =====================
 // VARIABLES
 // =====================
-let astronautX = 75;
+let astronautX = 150;
 let astronautY = 400;
-let speed = 2; // EDIT 6: gives astronaut lower gravity feel
+let speed = 5;
 
 // Obstacles array — each has x, y, w, h
 let obstacles = [];
 let obstacleTimer = 0;
 let obstacleInterval = 120; // frames between spawns
 
-let airSupply = 90; // EDIT 4: can only hit obstcales 3 times MAX
-
-// EDIT 6: every 400m, one new obstacle is added
-let startingDistance = 2000;
-let distance = startingDistance;
-let nextObstacleIncreaseAt = 400;
+let airSupply = 150;
+let distance = 1000;
 
 let gameSpeed = 5;
 let groundOffset = 0;
@@ -65,18 +61,10 @@ function stopMusic() {
 function setup() {
   createCanvas(1200, 600);
 
-  // EDIT 1
-  for (let i = 0; i < obstacleCount; i++) {
-    obstacles.push({
-      x: width + i * 500,
-      y: random(0, 450),
-    });
-  }
-
   for (let i = 0; i < 50; i++) {
     stars.push({
       x: random(width),
-      y: random(height),
+      y: random(height)
     });
   }
 
@@ -90,72 +78,6 @@ function setup() {
 }
 
 // =====================
-// SOUND HELPERS
-// =====================
-function getAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioCtx;
-}
-
-function playTone(freq, type, vol, attack, decay, when) {
-  let ac = getAudio();
-  let t = when || ac.currentTime;
-  let osc = ac.createOscillator();
-  let gain = ac.createGain();
-  osc.connect(gain);
-  gain.connect(ac.destination);
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(vol, t + attack);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-  osc.start(t);
-  osc.stop(t + attack + decay + 0.05);
-}
-
-function sfxHit() {
-  playTone(80, 'sawtooth', 0.4, 0.01, 0.15);
-  playTone(120, 'square', 0.2, 0.01, 0.1);
-}
-
-function sfxAirDrain() {
-  let ac = getAudio();
-  let t = ac.currentTime;
-  let bufLen = ac.sampleRate * 0.12;
-  let buf = ac.createBuffer(1, bufLen, ac.sampleRate);
-  let data = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) {
-    data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen) * 0.15;
-  }
-  let src = ac.createBufferSource();
-  src.buffer = buf;
-  let filt = ac.createBiquadFilter();
-  filt.type = 'bandpass';
-  filt.frequency.value = 800;
-  src.connect(filt);
-  filt.connect(ac.destination);
-  src.start(t);
-}
-
-function sfxWin() {
-  let ac = getAudio();
-  let notes = [[523, 0], [659, 0.15], [784, 0.3], [1047, 0.45]];
-  for (let [f, d] of notes) {
-    playTone(f, 'sine', 0.3, 0.02, 0.2, ac.currentTime + d);
-  }
-}
-
-function sfxLose() {
-  let ac = getAudio();
-  let notes = [[440, 0], [330, 0.2], [220, 0.4], [110, 0.65]];
-  for (let [f, d] of notes) {
-    playTone(f, 'sawtooth', 0.25, 0.02, 0.25, ac.currentTime + d);
-  }
-}
-
-// =====================
 // OBSTACLE SPAWNING
 // =====================
 function spawnObstacle() {
@@ -163,14 +85,14 @@ function spawnObstacle() {
   let sizes = [
     { w: 40, h: 50 },
     { w: 55, h: 70 },
-    { w: 30, h: 100 },
+    { w: 30, h: 100 }
   ];
   let s = random(sizes);
   obstacles.push({
     x: width + 20,
     y: yPos,
     w: s.w,
-    h: s.h,
+    h: s.h
   });
 }
 
@@ -247,19 +169,18 @@ function drawMars() {
   fill(255);
   noStroke();
   for (let s of stars) {
-    // EDIT 5: stars last the whole game
-    circle((((s.x + groundOffset * 0.2) % width) + width) % width, s.y, 2);
+    circle((s.x + groundOffset * 0.2) % width, s.y, 2);
   }
 
   fill(180, 80, 50);
   for (let x = -100; x < width + 100; x += 100) {
     triangle(
-      x + (((groundOffset % 100) + 100) % 100),
+      x + ((groundOffset % 100) + 100) % 100,
       500,
-      x + 50 + (((groundOffset % 100) + 100) % 100),
+      x + 50 + ((groundOffset % 100) + 100) % 100,
       430,
-      x + 100 + (((groundOffset % 100) + 100) % 100),
-      500,
+      x + 100 + ((groundOffset % 100) + 100) % 100,
+      500
     );
   }
 
@@ -572,53 +493,23 @@ function drawTutPage3() {
 
   textSize(16);
   fill(210);
-  text(
-    "Your air drains every second — and faster if you hit rocks.",
-    width / 2,
-    250,
-  );
-  text(
-    "Watch the bar top-left. Reach the base before it hits zero!",
-    width / 2,
-    278,
-  );
+  text("Your air drains every second — and faster if you hit rocks.", width / 2, 250);
+  text("Watch the bar top-left. Reach the base before it hits zero!", width / 2, 278);
 
   // Full bar
-  drawBarExample(
-    width / 2 - 200,
-    310,
-    1.0,
-    color(60, 200, 120),
-    "Full — keep going!",
-  );
+  drawBarExample(width / 2 - 200, 310, 1.0, color(60, 200, 120), "Full — keep going!");
 
   // Half bar
-  drawBarExample(
-    width / 2 - 200,
-    355,
-    0.5,
-    color(230, 160, 30),
-    "Below 50% — watch out",
-  );
+  drawBarExample(width / 2 - 200, 355, 0.5, color(230, 160, 30), "Below 50% — watch out");
 
   // Low bar
-  drawBarExample(
-    width / 2 - 200,
-    400,
-    0.15,
-    color(220, 60, 50),
-    "Critical — dodge everything!",
-  );
+  drawBarExample(width / 2 - 200, 400, 0.15, color(220, 60, 50), "Critical — dodge everything!");
 
   fill(160);
   textSize(14);
   textAlign(CENTER);
   noStroke();
-  text(
-    "Press Start! to begin your mission. Good luck, astronaut.",
-    width / 2,
-    452,
-  );
+  text("Press Start! to begin your mission. Good luck, astronaut.", width / 2, 452);
 }
 
 function drawBarExample(x, y, pct, col, label) {
@@ -672,13 +563,7 @@ function mousePressed() {
   }
 
   // PREV button area
-  if (
-    tutorialPage > 0 &&
-    mouseX > cx - 340 &&
-    mouseX < cx - 200 &&
-    mouseY > 460 &&
-    mouseY < 504
-  ) {
+  if (tutorialPage > 0 && mouseX > cx - 340 && mouseX < cx - 200 && mouseY > 460 && mouseY < 504) {
     tutorialPage--;
   }
 }
