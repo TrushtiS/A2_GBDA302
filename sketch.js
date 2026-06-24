@@ -24,11 +24,36 @@ let gameState = "tutorial";
 let tutorialPage = 0;
 const TUTORIAL_PAGES = 4;
 
-// Sound (Web Audio API)
-let audioCtx = null;
+//Sound 
+let bgMusic
+let hitSound;
 
 // Obstacle Y positions (3 heights): ground, mid, high
 const OBS_HEIGHTS = [450, 370, 290];
+
+// =====================
+// AUDIO ASSETS             
+// =====================
+ function preload() {
+    bgMusic = loadSound('assets/sounds/background_music_level1.mp3');
+
+    hitSound = loadSound('assets/sounds/hit_obstacle_sound_effect.mp3');
+
+ } 
+// Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
+function sfxHit() {
+  if (hitSound) {
+    hitSound.play();
+  }
+}
+ 
+// Stops background music and resets it to the beginning
+function stopMusic() {
+  if (bgMusic) {
+    bgMusic.stop();
+  }
+}
+
 
 // =====================
 // SETUP
@@ -43,74 +68,13 @@ function setup() {
     });
   }
 
+  if (!bgMusic.isPlaying()) {
+  bgMusic.setVolume(0.4);
+  bgMusic.loop();
+}
+
   // Spawn first obstacle
   spawnObstacle();
-}
-
-// =====================
-// SOUND HELPERS
-// =====================
-function getAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioCtx;
-}
-
-function playTone(freq, type, vol, attack, decay, when) {
-  let ac = getAudio();
-  let t = when || ac.currentTime;
-  let osc = ac.createOscillator();
-  let gain = ac.createGain();
-  osc.connect(gain);
-  gain.connect(ac.destination);
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(vol, t + attack);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-  osc.start(t);
-  osc.stop(t + attack + decay + 0.05);
-}
-
-function sfxHit() {
-  playTone(80, 'sawtooth', 0.4, 0.01, 0.15);
-  playTone(120, 'square', 0.2, 0.01, 0.1);
-}
-
-function sfxAirDrain() {
-  let ac = getAudio();
-  let t = ac.currentTime;
-  let bufLen = ac.sampleRate * 0.12;
-  let buf = ac.createBuffer(1, bufLen, ac.sampleRate);
-  let data = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) {
-    data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen) * 0.15;
-  }
-  let src = ac.createBufferSource();
-  src.buffer = buf;
-  let filt = ac.createBiquadFilter();
-  filt.type = 'bandpass';
-  filt.frequency.value = 800;
-  src.connect(filt);
-  filt.connect(ac.destination);
-  src.start(t);
-}
-
-function sfxWin() {
-  let ac = getAudio();
-  let notes = [[523, 0], [659, 0.15], [784, 0.3], [1047, 0.45]];
-  for (let [f, d] of notes) {
-    playTone(f, 'sine', 0.3, 0.02, 0.2, ac.currentTime + d);
-  }
-}
-
-function sfxLose() {
-  let ac = getAudio();
-  let notes = [[440, 0], [330, 0.2], [220, 0.4], [110, 0.65]];
-  for (let [f, d] of notes) {
-    playTone(f, 'sawtooth', 0.25, 0.02, 0.25, ac.currentTime + d);
-  }
 }
 
 // =====================
@@ -153,7 +117,6 @@ function draw() {
   // Drain air every 1 second
   if (millis() - lastAirDrain > 1000) {
     airSupply--;
-    sfxAirDrain();
     lastAirDrain = millis();
   }
 
@@ -167,14 +130,14 @@ function draw() {
   }
 
   if (airSupply <= 0) {
-    sfxLose();
+    stopMusic();
     drawLoseScreen();
     noLoop();
     return;
   }
 
   if (distance <= 0) {
-    sfxWin();
+    stopMusic();
     drawWinScreen();
     noLoop();
     return;
@@ -584,7 +547,7 @@ function mousePressed() {
   if (gameState !== "tutorial") return;
 
   // Unlock audio on first interaction
-  getAudio();
+  userStartAudio();
 
   let cx = width / 2;
 
