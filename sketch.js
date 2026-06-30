@@ -40,9 +40,9 @@ const OBS_HEIGHTS = [380, 235, 70];
 // =====================
 function preload() {
   bgMusic = loadSound("assets/sounds/background_music_level1.mp3");
-
   hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
 }
+
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
 function sfxHit() {
   if (hitSound) {
@@ -161,10 +161,11 @@ function draw() {
 // PLAYER
 // =====================
 function updateAstronaut() {
-  if (keyIsDown(87) || keyIsDown(UP_ARROW)) {
+  // REMOVED W / S key dependencies (Key codes 87 and 83)
+  if (keyIsDown(UP_ARROW)) {
     astronautY -= speed;
   }
-  if (keyIsDown(83) || keyIsDown(DOWN_ARROW)) {
+  if (keyIsDown(DOWN_ARROW)) {
     astronautY += speed;
   }
 
@@ -365,7 +366,7 @@ function drawTutorial() {
   if (tutorialPage === 0) {
     drawTutPage0();
   } else if (tutorialPage === 1) {
-    drawTutPage1();
+    drawTutPage1(); // Dynamically handled below
   } else if (tutorialPage === 2) {
     drawTutPage2();
   } else if (tutorialPage === 3) {
@@ -446,37 +447,26 @@ function drawTutPage1() {
   text("Controls", width / 2, 210);
 
   textSize(17);
-  fill(210);
-  text("You can only move UP and DOWN.", width / 2, 248);
+  fill(210, 210, 210);
+  text("Use the Arrow Keys to navigate vertical space.", width / 2, 255);
 
-  // Key boxes
-  let keys = [
-    { label: "W", desc: "Move up", x: width / 2 - 120 },
-    { label: "S", desc: "Move down", x: width / 2 - 10 },
-    { label: "↑", desc: "Move up", x: width / 2 + 100 },
-    { label: "↓", desc: "Move down", x: width / 2 + 210 },
-  ];
+  textSize(16);
+  fill(255, 200, 50);
+  text("Press UP_ARROW to move up", width / 2, 300);
+  text("Press DOWN_ARROW to move down", width / 2, 330);
 
-  for (let k of keys) {
-    fill(60, 60, 100);
-    stroke(120, 120, 200);
-    strokeWeight(2);
-    rect(k.x, 275, 60, 60, 8);
-    fill(255);
-    noStroke();
-    textSize(28);
-    textAlign(CENTER);
-    text(k.label, k.x + 30, 315);
-    fill(180);
-    textSize(13);
-    text(k.desc, k.x + 30, 355);
-  }
+  // Quick instructional box drawing
+  stroke(255, 150);
+  strokeWeight(1);
+  noFill();
+  rect(width / 2 - 60, 360, 40, 40, 4);
+  rect(width / 2 + 20, 360, 40, 40, 4);
 
-  fill(200);
-  textSize(15);
-  textAlign(CENTER);
+  fill(255);
   noStroke();
-  text("Hold a key to keep moving in that direction.", width / 2, 400);
+  textSize(14);
+  text("▲", width / 2 - 40, 385);
+  text("▼", width / 2 + 40, 385);
 }
 
 // --- Tutorial page 2: Obstacles ---
