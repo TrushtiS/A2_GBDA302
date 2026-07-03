@@ -318,11 +318,11 @@ function drawUI() {
   rect(15, 15, 200, 22, 4);
 
   // Air bar fill — colour changes with supply
-  let pct = constrain(airSupply / 150, 0, 1);
+  let pct = constrain(airSupply / 100, 0, 1);
   if (pct > 0.5) fill(60, 200, 120);
   else if (pct > 0.25) fill(230, 160, 30);
   else fill(220, 60, 50);
-  rect(16, 16, 198 * pct, 22, 4);
+  rect(16, 16, 200 * pct, 20, 4);
 
   // Air label
   fill(255);
