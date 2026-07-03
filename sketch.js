@@ -15,6 +15,8 @@ let nextObstacleIncreaseAt = 400;
 let airSupply = 100;
 let distance = 1500;
 const startingDistance = distance;
+let distanceBarDisplay = 0;
+const DISTANCE_DRAIN_PER_SECOND = 30;
 
 let gameSpeed = 5;
 let groundOffset = 0; 
@@ -23,6 +25,10 @@ let stars = [];
 let airPulses = [];
 let lastAirDrain = 0;
 
+let blinkFramesLeft = 0;
+const BLINK_TOGGLE_EVERY = 4; // frames per on/off switch (higher = slower blink)
+const BLINK_TOGGLES = 4; // 4 toggles = 2 full blinks
+let hitCooldownFrames = 0;
 // Game states: "tutorial", "playing", "win", "lose"
 let gameState = "tutorial";
 let tutorialPage = 0;
@@ -40,7 +46,6 @@ const OBS_HEIGHTS = [380, 235, 70];
 // =====================
 function preload() {
   bgMusic = loadSound("assets/sounds/background_music_level1.mp3");
-
   hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
 }
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
@@ -113,9 +118,15 @@ function draw() {
   updateAstronaut();
   drawAirPulses();
   drawObstacles();
-  drawUI();
 
-  distance -= 0.5;
+  // Drain distance using real elapsed time for smooth, frame-rate independent motion.
+  distance -= DISTANCE_DRAIN_PER_SECOND * (deltaTime / 1000);
+  distance = max(0, distance);
+
+  let targetProgressPct = constrain(1 - distance / startingDistance, 0, 1);
+  distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
+
+  drawUI();
 
   // Add one extra obstacle to each spawn wave every 400m traveled.
   let distanceTravelled = startingDistance - distance;
@@ -161,18 +172,58 @@ function draw() {
 // PLAYER
 // =====================
 function updateAstronaut() {
-  if (keyIsDown(87) || keyIsDown(UP_ARROW)) {
+  // REMOVED W / S key dependencies (Key codes 87 and 83)
+  if (keyIsDown(UP_ARROW)) {
     astronautY -= speed;
   }
-  if (keyIsDown(83) || keyIsDown(DOWN_ARROW)) {
+  if (keyIsDown(DOWN_ARROW)) {
     astronautY += speed;
   }
 
   astronautY = constrain(astronautY, 0, 420);
 
+  let shouldDrawAstronaut = true;
+  if (blinkFramesLeft > 0) {
+    let toggleIndex = floor(blinkFramesLeft / BLINK_TOGGLE_EVERY);
+    shouldDrawAstronaut = toggleIndex % 2 === 0;
+    blinkFramesLeft--;
+  }
+
+  if (shouldDrawAstronaut) {
+    noStroke();
+    fill(255);
+    rect(astronautX, astronautY, 50, 80);
+  }
+}
+
+function spawnAirPulse() {
+  airPulses.push({
+    x: astronautX,
+    y: astronautY + 40 + random(-6, 6),
+    size: 15,
+    alpha: 120,
+    speedX: 7,
+  });
+}
+
+function drawAirPulses() {
   noStroke();
-  fill(255);
-  rect(astronautX, astronautY, 50, 80);
+
+  for (let i = airPulses.length - 1; i >= 0; i--) {
+    let p = airPulses[i];
+
+    fill(180, 220, 255, p.alpha);
+    circle(p.x, p.y, p.size);
+
+    p.x -= p.speedX;
+    p.alpha -= 3;
+    p.size += 0.2;
+
+    if (p.alpha <= 0 || p.x < -20) {
+      airPulses.splice(i, 1);
+    }
+  }
+}
 }
 
 function spawnAirPulse() {
@@ -240,6 +291,10 @@ function drawMars() {
 function drawObstacles() {
   noStroke();
 
+  if (hitCooldownFrames > 0) {
+    hitCooldownFrames--;
+  }
+
   for (let i = obstacles.length - 1; i >= 0; i--) {
     let o = obstacles[i];
 
@@ -250,7 +305,6 @@ function drawObstacles() {
     // Simple highlight
     fill(160, 100, 70, 80);
     rect(o.x + 4, o.y + 4, o.w - 8, 6);
-
     // Move
     o.x -= gameSpeed;
 
@@ -260,32 +314,22 @@ function drawObstacles() {
       continue;
     }
 
-    // Collision hitboxes
-    let astronautHitbox = {
-      x: astronautX,
-      y: astronautY,
-      w: 50,
-      h: 80
-    };
-
-    let obstacleHitbox = {
-      x: o.x,
-      y: o.y,
-      w: o.w,
-      h: o.h
-    };
-
+    // Collision
     let hit =
-      astronautHitbox.x < obstacleHitbox.x + obstacleHitbox.w &&
-      astronautHitbox.x + astronautHitbox.w > obstacleHitbox.x &&
-      astronautHitbox.y < obstacleHitbox.y + obstacleHitbox.h &&
-      astronautHitbox.y + astronautHitbox.h > obstacleHitbox.y;
+      astronautX + 50 > o.x &&
+      astronautX < o.x + o.w &&
+      astronautY + 80 > o.y &&
+      astronautY < o.y + o.h;
 
     if (hit) {
-      airSupply -= 2;
+      // Keep original difficulty: lose air continuously while touching a rock.
+      airSupply -= 1;
 
-      if (frameCount % 15 === 0) {
+      // Throttle feedback so blink/sound don't retrigger every frame.
+      if (hitCooldownFrames === 0) {
         sfxHit();
+        blinkFramesLeft = BLINK_TOGGLES * BLINK_TOGGLE_EVERY;
+        hitCooldownFrames = 20;
       }
     }
   }
@@ -305,18 +349,32 @@ function drawUI() {
   if (pct > 0.5) fill(60, 200, 120);
   else if (pct > 0.25) fill(230, 160, 30);
   else fill(220, 60, 50);
-  rect(16, 16, 198 * pct, 20, 3);
+  rect(16, 16, 200 * pct, 20, 4);
 
   // Air label
   fill(255);
   textSize(14);
   textAlign(LEFT);
-  text("AIR", 20, 31);
+  text("AIR", 22, 32);
 
-  // Distance
-  textSize(24);
+  // Distance bar along the bottom
+  let barX = 15;
+  let barY = height - 38;
+  let barW = width - 30;
+  let barH = 22;
+
+  fill(0, 0, 0, 120);
+  rect(barX, barY, barW, barH, 6);
+  fill(20, 39, 97);
+  rect(barX, barY, barW * distanceBarDisplay, barH, 5);
+
+  fill(235);
+  textSize(14);
   textAlign(LEFT);
-  text("Distance to Target: " + floor(distance) + "m", 900, 40);
+  text("PROGRESS TO BASE", barX + 6, barY + 16);
+
+  textAlign(RIGHT);
+  text(floor(distance) + "m", barX + barW - 6, barY + 16);
 }
 
 // =====================
@@ -382,7 +440,7 @@ function drawTutorial() {
   if (tutorialPage === 0) {
     drawTutPage0();
   } else if (tutorialPage === 1) {
-    drawTutPage1();
+    drawTutPage1(); // Dynamically handled below
   } else if (tutorialPage === 2) {
     drawTutPage2();
   } else if (tutorialPage === 3) {
@@ -463,37 +521,30 @@ function drawTutPage1() {
   text("Controls", width / 2, 210);
 
   textSize(17);
-  fill(210);
-  text("You can only move UP and DOWN.", width / 2, 248);
+  fill(210, 210, 210);
+  text(
+    "Press and hold the Arrow Keys to navigate vertical space.",
+    width / 2,
+    255,
+  );
 
-  // Key boxes
-  let keys = [
-    { label: "W", desc: "Move up", x: width / 2 - 120 },
-    { label: "S", desc: "Move down", x: width / 2 - 10 },
-    { label: "↑", desc: "Move up", x: width / 2 + 100 },
-    { label: "↓", desc: "Move down", x: width / 2 + 210 },
-  ];
+  textSize(16);
+  fill(255, 200, 50);
+  text("Press UP_ARROW to move up", width / 2, 300);
+  text("Press DOWN_ARROW to move down", width / 2, 330);
 
-  for (let k of keys) {
-    fill(60, 60, 100);
-    stroke(120, 120, 200);
-    strokeWeight(2);
-    rect(k.x, 275, 60, 60, 8);
-    fill(255);
-    noStroke();
-    textSize(28);
-    textAlign(CENTER);
-    text(k.label, k.x + 30, 315);
-    fill(180);
-    textSize(13);
-    text(k.desc, k.x + 30, 355);
-  }
+  // Quick instructional box drawing
+  stroke(255, 150);
+  strokeWeight(1);
+  noFill();
+  rect(width / 2 - 60, 360, 40, 40, 4);
+  rect(width / 2 + 20, 360, 40, 40, 4);
 
-  fill(200);
-  textSize(15);
-  textAlign(CENTER);
+  fill(255);
   noStroke();
-  text("Hold a key to keep moving in that direction.", width / 2, 400);
+  textSize(14);
+  text("▲", width / 2 - 40, 385);
+  text("▼", width / 2 + 40, 385);
 }
 
 // --- Tutorial page 2: Obstacles ---
