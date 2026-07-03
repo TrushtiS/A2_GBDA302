@@ -19,7 +19,7 @@ let distanceBarDisplay = 0;
 const DISTANCE_DRAIN_PER_SECOND = 30;
 
 let gameSpeed = 5;
-let groundOffset = 0; 
+let groundOffset = 0;
 
 let stars = [];
 let airPulses = [];
@@ -29,6 +29,7 @@ let blinkFramesLeft = 0;
 const BLINK_TOGGLE_EVERY = 4; // frames per on/off switch (higher = slower blink)
 const BLINK_TOGGLES = 4; // 4 toggles = 2 full blinks
 let hitCooldownFrames = 0;
+
 // Game states: "tutorial", "playing", "win", "lose"
 let gameState = "tutorial";
 let tutorialPage = 0;
@@ -48,6 +49,7 @@ function preload() {
   bgMusic = loadSound("assets/sounds/background_music_level1.mp3");
   hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
 }
+
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
 function sfxHit() {
   if (hitSound) {
@@ -224,36 +226,6 @@ function drawAirPulses() {
     }
   }
 }
-}
-
-function spawnAirPulse() {
-  airPulses.push({
-    x: astronautX,
-    y: astronautY + 40 + random(-6, 6),
-    size: 15,
-    alpha: 120,
-    speedX: 7,
-  });
-}
-
-function drawAirPulses() {
-  noStroke();
-
-  for (let i = airPulses.length - 1; i >= 0; i--) {
-    let p = airPulses[i];
-
-    fill(180, 220, 255, p.alpha);
-    circle(p.x, p.y, p.size);
-
-    p.x -= p.speedX;
-    p.alpha -= 3;
-    p.size += 0.2;
-
-    if (p.alpha <= 0 || p.x < -20) {
-      airPulses.splice(i, 1);
-    }
-  }
-}
 
 // =====================
 // ENVIRONMENT
@@ -305,6 +277,7 @@ function drawObstacles() {
     // Simple highlight
     fill(160, 100, 70, 80);
     rect(o.x + 4, o.y + 4, o.w - 8, 6);
+
     // Move
     o.x -= gameSpeed;
 
