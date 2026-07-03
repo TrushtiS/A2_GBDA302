@@ -15,6 +15,8 @@ let nextObstacleIncreaseAt = 400;
 let airSupply = 100;
 let distance = 1500;
 const startingDistance = distance;
+let distanceBarDisplay = 0;
+const DISTANCE_DRAIN_PER_SECOND = 30;
 
 let gameSpeed = 5;
 let groundOffset = 0;
@@ -22,6 +24,11 @@ let groundOffset = 0;
 let stars = [];
 let airPulses = [];
 let lastAirDrain = 0;
+
+let blinkFramesLeft = 0;
+const BLINK_TOGGLE_EVERY = 4; // frames per on/off switch (higher = slower blink)
+const BLINK_TOGGLES = 4; // 4 toggles = 2 full blinks
+let hitCooldownFrames = 0;
 
 // Game states: "tutorial", "playing", "win", "lose"
 let gameState = "tutorial";
@@ -113,9 +120,15 @@ function draw() {
   updateAstronaut();
   drawAirPulses();
   drawObstacles();
-  drawUI();
 
-  distance -= 0.5;
+  // Drain distance using real elapsed time for smooth, frame-rate independent motion.
+  distance -= DISTANCE_DRAIN_PER_SECOND * (deltaTime / 1000);
+  distance = max(0, distance);
+
+  let targetProgressPct = constrain(1 - distance / startingDistance, 0, 1);
+  distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
+
+  drawUI();
 
   // Add one extra obstacle to each spawn wave every 400m traveled.
   let distanceTravelled = startingDistance - distance;
@@ -171,9 +184,18 @@ function updateAstronaut() {
 
   astronautY = constrain(astronautY, 0, 420);
 
-  noStroke();
-  fill(255);
-  rect(astronautX, astronautY, 50, 80);
+  let shouldDrawAstronaut = true;
+  if (blinkFramesLeft > 0) {
+    let toggleIndex = floor(blinkFramesLeft / BLINK_TOGGLE_EVERY);
+    shouldDrawAstronaut = toggleIndex % 2 === 0;
+    blinkFramesLeft--;
+  }
+
+  if (shouldDrawAstronaut) {
+    noStroke();
+    fill(255);
+    rect(astronautX, astronautY, 50, 80);
+  }
 }
 
 function spawnAirPulse() {
@@ -241,6 +263,10 @@ function drawMars() {
 function drawObstacles() {
   noStroke();
 
+  if (hitCooldownFrames > 0) {
+    hitCooldownFrames--;
+  }
+
   for (let i = obstacles.length - 1; i >= 0; i--) {
     let o = obstacles[i];
 
@@ -269,8 +295,15 @@ function drawObstacles() {
       astronautY < o.y + o.h;
 
     if (hit) {
+      // Keep original difficulty: lose air continuously while touching a rock.
       airSupply -= 1;
-      if (frameCount % 30 === 0) sfxHit();
+
+      // Throttle feedback so blink/sound don't retrigger every frame.
+      if (hitCooldownFrames === 0) {
+        sfxHit();
+        blinkFramesLeft = BLINK_TOGGLES * BLINK_TOGGLE_EVERY;
+        hitCooldownFrames = 20;
+      }
     }
   }
 }
@@ -289,18 +322,32 @@ function drawUI() {
   if (pct > 0.5) fill(60, 200, 120);
   else if (pct > 0.25) fill(230, 160, 30);
   else fill(220, 60, 50);
-  rect(16, 16, 198 * pct, 20, 3);
+  rect(16, 16, 198 * pct, 22, 4);
 
   // Air label
   fill(255);
   textSize(14);
   textAlign(LEFT);
-  text("AIR", 20, 31);
+  text("AIR", 22, 32);
 
-  // Distance
-  textSize(24);
+  // Distance bar along the bottom
+  let barX = 15;
+  let barY = height - 38;
+  let barW = width - 30;
+  let barH = 22;
+
+  fill(0, 0, 0, 120);
+  rect(barX, barY, barW, barH, 6);
+  fill(20, 39, 97);
+  rect(barX, barY, barW * distanceBarDisplay, barH, 5);
+
+  fill(235);
+  textSize(14);
   textAlign(LEFT);
-  text("Distance to Target: " + floor(distance) + "m", 900, 40);
+  text("PROGRESS TO BASE", barX + 6, barY + 16);
+
+  textAlign(RIGHT);
+  text(floor(distance) + "m", barX + barW - 6, barY + 16);
 }
 
 // =====================
@@ -448,7 +495,11 @@ function drawTutPage1() {
 
   textSize(17);
   fill(210, 210, 210);
-  text("Use the Arrow Keys to navigate vertical space.", width / 2, 255);
+  text(
+    "Press and hold the Arrow Keys to navigate vertical space.",
+    width / 2,
+    255,
+  );
 
   textSize(16);
   fill(255, 200, 50);
