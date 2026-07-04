@@ -39,6 +39,18 @@ const TUTORIAL_PAGES = 4;
 let bgMusic;
 let hitSound;
 
+//stardust 
+let stardustParticles = [];
+let stardustTimer    = 0;
+let stardustInterval = 300; 
+// Values: null | "slow" | "spin"
+let activeEffect = null;
+// Spin angle accumulates while the "spin" effect is active
+let spinAngle = 0;
+// How much the spin effect rotates the astronaut per frame (radians)
+const SPIN_RATE = 0.08;
+// Slow effect multiplier applied to astronautY movement
+const SLOW_MULT = 0.4;
 // Obstacle Y positions (3 heights): ground, mid, high
 const OBS_HEIGHTS = [380, 235, 70];
 
@@ -117,6 +129,7 @@ function draw() {
   background(10, 20, 50);
 
   drawMars();
+  drawStardust(); 
   updateAstronaut();
   drawAirPulses();
   drawObstacles();
@@ -129,6 +142,7 @@ function draw() {
   distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
 
   drawUI();
+  drawEffectHUD(); 
 
   // Add one extra obstacle to each spawn wave every 400m traveled.
   let distanceTravelled = startingDistance - distance;
@@ -155,6 +169,14 @@ function draw() {
     obstacleInterval = floor(random(90, 160));
   }
 
+   stardustTimer++;
+  if (stardustTimer >= stardustInterval) {
+    spawnStardust();
+    stardustTimer = 0;
+    // Vary the interval a little so it feels organic (4–6 seconds at 60fps)
+    stardustInterval = floor(random(240, 360));
+  }
+
   if (airSupply <= 0) {
     stopMusic();
     drawLoseScreen();
@@ -174,38 +196,48 @@ function draw() {
 // PLAYER
 // =====================
 function updateAstronaut() {
-  // REMOVED W / S key dependencies (Key codes 87 and 83)
-  if (keyIsDown(UP_ARROW)) {
-    astronautY -= speed;
+  // Determine effective movement speed this frame
+  let effectiveSpeed = speed;
+  if (activeEffect === "slow") {
+    effectiveSpeed *= SLOW_MULT; // movement is sluggish
   }
-  if (keyIsDown(DOWN_ARROW)) {
-    astronautY += speed;
-  }
-
+ 
+  if (keyIsDown(UP_ARROW))   astronautY -= effectiveSpeed;
+  if (keyIsDown(DOWN_ARROW)) astronautY += effectiveSpeed;
+ 
   astronautY = constrain(astronautY, 0, 420);
-
+ 
+  // Advance spin angle each frame while spinning
+  if (activeEffect === "spin") {
+    spinAngle += SPIN_RATE;
+  }
+ 
+  // Decide whether to draw (blink logic unchanged)
   let shouldDrawAstronaut = true;
   if (blinkFramesLeft > 0) {
     let toggleIndex = floor(blinkFramesLeft / BLINK_TOGGLE_EVERY);
     shouldDrawAstronaut = toggleIndex % 2 === 0;
     blinkFramesLeft--;
   }
-
+ 
   if (shouldDrawAstronaut) {
     noStroke();
     fill(255);
-    rect(astronautX, astronautY, 50, 80);
+ 
+    if (activeEffect === "spin") {
+      // Rotate around the astronaut's centre
+      let cx = astronautX + 25; // half of rect width  (50)
+      let cy = astronautY + 40; // half of rect height (80)
+      push();
+        translate(cx, cy);
+        rotate(spinAngle);
+        rect(-25, -40, 50, 80); // centred on (0,0)
+      pop();
+    } else {
+      // Normal draw
+      rect(astronautX, astronautY, 50, 80);
+    }
   }
-}
-
-function spawnAirPulse() {
-  airPulses.push({
-    x: astronautX,
-    y: astronautY + 40 + random(-6, 6),
-    size: 15,
-    alpha: 120,
-    speedX: 7,
-  });
 }
 
 function drawAirPulses() {
@@ -686,4 +718,127 @@ function mousePressed() {
   ) {
     tutorialPage--;
   }
+}
+
+// =====================
+// Stardust
+// =====================
+function spawnStardust() {
+  let t   = random(["slow", "spin"]);
+  let yPos = random(60, 420); // can appear at any flight height
+  stardustParticles.push({
+    x:          width + 24,
+    y:          yPos,
+    baseY:      yPos,       // used for floating sine animation
+    floatPhase: random(TWO_PI),
+    type:       t,
+    radius:     9,          // collision uses this too
+  });
+}
+
+function drawStardust() {
+  for (let i = stardustParticles.length - 1; i >= 0; i--) {
+    let d = stardustParticles[i];
+ 
+    // Float up and down with a slow sine wave
+    d.y  = d.baseY + sin(frameCount * 0.035 + d.floatPhase) * 10;
+    d.x -= gameSpeed * 0.75; // slightly slower than obstacles for readability
+ 
+    // Remove once it scrolls off screen
+    if (d.x < -40) {
+      stardustParticles.splice(i, 1);
+      continue;
+    }
+ 
+    // --- Glow layers (3 concentric transparent rings) ---
+    // Red = slow effect   Yellow = spin effect
+    let r, g, b;
+    if (d.type === "slow") {
+      r = 255; g = 55;  b = 55;   // warm red
+    } else {
+      r = 255; g = 210; b = 30;   // golden yellow
+    }
+ 
+    noFill();
+    // Outermost ring — very faint
+    stroke(r, g, b, 28);
+    strokeWeight(d.radius * 1.4);
+    circle(d.x, d.y, d.radius * 3.6);
+ 
+    // Mid ring
+    stroke(r, g, b, 55);
+    strokeWeight(d.radius * 0.7);
+    circle(d.x, d.y, d.radius * 2.4);
+ 
+    // Inner ring
+    stroke(r, g, b, 90);
+    strokeWeight(d.radius * 0.35);
+    circle(d.x, d.y, d.radius * 1.5);
+ 
+    // Solid core
+    noStroke();
+    fill(r, g, b, 210);
+    circle(d.x, d.y, d.radius);
+ 
+    // --- Collision: circle vs astronaut rect ---
+    // Find the closest point on the astronaut's bounding box to the stardust centre
+    let closestX = constrain(d.x, astronautX, astronautX + 50);
+    let closestY = constrain(d.y, astronautY, astronautY + 80);
+    let dx = d.x - closestX;
+    let dy = d.y - closestY;
+    let distSq = dx * dx + dy * dy;
+ 
+    if (distSq < (d.radius * d.radius)) {
+      // Hit! New effect replaces any existing one immediately.
+      activeEffect = d.type;
+ 
+      // Reset spin angle so the rotation starts fresh
+      if (activeEffect === "spin") spinAngle = 0;
+ 
+      stardustParticles.splice(i, 1);
+      // Optional: play a soft audio cue here if you add one later
+    }
+  }
+}
+
+
+function drawEffectHUD() {
+  if (!activeEffect) return;
+ 
+  let label, r, g, b;
+  if (activeEffect === "slow") {
+    label = "SUIT COMPROMISED: SLOWED";
+    r = 255; g = 55; b = 55;
+  } else {
+    label = "SUIT COMPROMISED: DISORIENTED";
+    r = 255; g = 210; b = 30;
+  }
+ 
+  // Pill background
+  noStroke();
+  fill(r, g, b, 40);
+  rect(width - 290, 14, 274, 24, 6);
+ 
+  // Glowing border
+  noFill();
+  stroke(r, g, b, 100);
+  strokeWeight(1);
+  rect(width - 290, 14, 274, 24, 6);
+ 
+  // Label text
+  noStroke();
+  fill(r, g, b, 230);
+  textSize(12);
+  textAlign(RIGHT);
+  text(label, width - 20, 31);
+}
+
+function spawnAirPulse() {
+  airPulses.push({
+    x: astronautX,           // start at astronaut position
+    y: astronautY + 40,      // vertically centered on the astronaut
+    speedX: random(1.5, 3),  // drifts leftward
+    alpha: 180,
+    size: random(8, 16),
+  });
 }
