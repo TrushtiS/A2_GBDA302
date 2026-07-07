@@ -13,13 +13,16 @@ let obstaclesPerWave = 1;
 let nextObstacleIncreaseAt = 400;
 
 let airSupply = 100;
+let statusText = "STABLE";
 let distance = 1500;
 const startingDistance = distance;
 let distanceBarDisplay = 0;
 const DISTANCE_DRAIN_PER_SECOND = 30;
+let lowAirWarningPlayed = false;
+let lowAirWarningTextStartMs = 0;
+let lowAirWarningTextUntilMs = 0;
 
 let gameSpeed = 5;
-let groundOffset = 0;
 
 let stars = [];
 let airPulses = [];
@@ -30,14 +33,101 @@ const BLINK_TOGGLE_EVERY = 4; // frames per on/off switch (higher = slower blink
 const BLINK_TOGGLES = 4; // 4 toggles = 2 full blinks
 let hitCooldownFrames = 0;
 
-// Game states: "tutorial", "playing", "win", "lose"
-let gameState = "tutorial";
-let tutorialPage = 0;
-const TUTORIAL_PAGES = 4;
+// Game states: "start", "playing", "paused", "win", "lose"
+let gameState = "start";
+let showTutorialMessage = false;
+const TUTORIAL_MESSAGE_1 = "Astronaut, this is Mission Control.";
+const TUTORIAL_MESSAGE_2 =
+  "Your trajectory to Mars looks good, but we have some bad news.";
+const TUTORIAL_MESSAGE_3 =
+  "We've detected a leak in your suit. This means you'll be running out of air much faster.";
+const TUTORIAL_MESSAGE_4 =
+  "Don't worry, we'll further guide you after touch-down.";
+const TUTORIAL_MESSAGE_5 = "Astronaut, you are clear for landing!";
+const TUTORIAL_TYPE_MS_PER_CHAR = 45;
+const COPY_BUTTON_W = 122;
+const COPY_BUTTON_H = 42;
+const COPY_BUTTON_Y = 520;
+const FINAL_BUTTON_LABEL = "Roger that!";
+const FINAL_BUTTON_PADDING_X = 20;
+const POST_LANDING_MESSAGE =
+  "Great touchdown, Astronaut! Clear to commence post-landing checklist?";
+const POST_LANDING_BUTTON_LABEL = "Clear!";
+const POST_LANDING_BUTTON_H = 42;
+const POST_LANDING_BUTTON_PADDING_X = 20;
+const AIR_SUPPLY_PROMPT_MESSAGE = "Air supply Display?";
+const NAVIGATION_PROMPT_MESSAGE = "Navigation Display?";
+const STATUS_PROMPT_MESSAGE = "Status Display?";
+const CHECKLIST_COMPLETE_MESSAGE =
+  "Checklist complete. Clear to check thruster control?";
+const THRUSTER_CONTROL_MESSAGE =
+  "Press the UP arrow key to thrust up, and the DOWN arrow key to thrust down.";
+const THRUSTER_COMPLETE_MESSAGE =
+  "Thruster check complete. A few final reminders, listen carefully, Astronaut.";
+const COLLISION_REMINDER_MESSAGE =
+  "Avoid collisions with obstacles, they will deplete your air even faster.";
+const STARDUST_WARNING_MESSAGE =
+  "Watch out for the floating stardust, its effects are incredibly unpredictable.";
+const OXYGEN_WARNING_MESSAGE =
+  "Above all, reach the base before your oxygen runs out!";
+const FINAL_SIGNOFF_MESSAGE =
+  "Good luck out there, Astronaut. Mission Control over and out.";
+let tutorialMessageStartMs = 0;
+let tutorialMessageStep = 1;
+let rocketBaseYDisplay = 300;
+let launchTransitionActive = false;
+let fadeInFromBlack = false;
+let screenFadeAlpha = 0;
+let launchRocketX = 0;
+let launchRocketY = 300;
+let gameplayFrozen = false;
+let postLandingBriefingActive = false;
+let postLandingBriefingStartMs = 0;
+let airSupplyPromptActive = false;
+let airSupplyPromptStartMs = 0;
+let navigationPromptActive = false;
+let navigationPromptStartMs = 0;
+let statusPromptActive = false;
+let statusPromptStartMs = 0;
+let checklistCompletePromptActive = false;
+let checklistCompletePromptStartMs = 0;
+let thrusterControlPromptActive = false;
+let thrusterUpPressed = false;
+let thrusterDownPressed = false;
+let thrusterCompletePromptActive = false;
+let thrusterCompletePromptStartMs = 0;
+let collisionReminderPromptActive = false;
+let collisionReminderPromptStartMs = 0;
+let stardustWarningPromptActive = false;
+let stardustWarningPromptStartMs = 0;
+let oxygenWarningPromptActive = false;
+let oxygenWarningPromptStartMs = 0;
+let finalSignoffPromptActive = false;
+let finalSignoffPromptStartMs = 0;
+let wasGameplayFrozenLastFrame = false;
+let frozenAstronautBaseY = 400;
 
 //Sound
 let bgMusic;
 let hitSound;
+let boostUpSound;
+let mc1Sound;
+let mc2Sound;
+let mc3Sound;
+let mc4Sound;
+let mc5Sound;
+let mc6Sound;
+let mc7Sound;
+let mc8Sound;
+let mc9Sound;
+let mc10Sound;
+let mc11Sound;
+let mc12Sound;
+let mc13Sound;
+let mc14Sound;
+let mc15Sound;
+let mc16Sound;
+let mcWarningSound;
 
 //stardust
 let stardustParticles = [];
@@ -60,13 +150,196 @@ const OBS_HEIGHTS = [380, 235, 70];
 function preload() {
   bgMusic = loadSound("assets/sounds/background_music.mp3");
   hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
+  boostUpSound = loadSound("assets/sounds/boost_up_sound_effect.mp3");
+  mc1Sound = loadSound("assets/sounds/MC1.mp3");
+  mc2Sound = loadSound("assets/sounds/MC2.mp3");
+  mc3Sound = loadSound("assets/sounds/MC3.mp3");
+  mc4Sound = loadSound("assets/sounds/MC4.mp3");
+  mc5Sound = loadSound("assets/sounds/MC5.mp3");
+  mc6Sound = loadSound("assets/sounds/MC6.mp3");
+  mc7Sound = loadSound("assets/sounds/MC7.mp3");
+  mc8Sound = loadSound("assets/sounds/MC8.mp3");
+  mc9Sound = loadSound("assets/sounds/MC9.mp3");
+  mc10Sound = loadSound("assets/sounds/MC10.mp3");
+  mc11Sound = loadSound("assets/sounds/MC11.mp3");
+  mc12Sound = loadSound("assets/sounds/MC12.mp3");
+  mc13Sound = loadSound("assets/sounds/MC13.mp3");
+  mc14Sound = loadSound("assets/sounds/MC14.mp3");
+  mc15Sound = loadSound("assets/sounds/MC15.mp3");
+  mc16Sound = loadSound("assets/sounds/MC16.mp3");
+  mcWarningSound = loadSound("assets/sounds/MCwarning.mp3");
 }
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
 function sfxHit() {
   if (hitSound) {
+    hitSound.setVolume(0.2);
     hitSound.play();
   }
+}
+
+function sfxBoostUp() {
+  if (!boostUpSound) return;
+
+  if (boostUpSound.isPlaying()) {
+    boostUpSound.stop();
+  }
+  boostUpSound.setVolume(0.05);
+  boostUpSound.play();
+}
+
+function sfxMC1() {
+  if (!mc1Sound) return;
+
+  // Restart the clip each time tutorial relay begins.
+  if (mc1Sound.isPlaying()) {
+    mc1Sound.stop();
+  }
+  mc1Sound.play();
+}
+
+function sfxMC2() {
+  if (!mc2Sound) return;
+
+  if (mc2Sound.isPlaying()) {
+    mc2Sound.stop();
+  }
+  mc2Sound.play();
+}
+
+function sfxMC3() {
+  if (!mc3Sound) return;
+
+  if (mc3Sound.isPlaying()) {
+    mc3Sound.stop();
+  }
+  mc3Sound.play();
+}
+
+function sfxMC4() {
+  if (!mc4Sound) return;
+
+  if (mc4Sound.isPlaying()) {
+    mc4Sound.stop();
+  }
+  mc4Sound.play();
+}
+
+function sfxMC5() {
+  if (!mc5Sound) return;
+
+  if (mc5Sound.isPlaying()) {
+    mc5Sound.stop();
+  }
+  mc5Sound.play();
+}
+
+function sfxMC6() {
+  if (!mc6Sound) return;
+
+  if (mc6Sound.isPlaying()) {
+    mc6Sound.stop();
+  }
+  mc6Sound.play();
+}
+
+function sfxMC7() {
+  if (!mc7Sound) return;
+
+  if (mc7Sound.isPlaying()) {
+    mc7Sound.stop();
+  }
+  mc7Sound.play();
+}
+
+function sfxMC8() {
+  if (!mc8Sound) return;
+
+  if (mc8Sound.isPlaying()) {
+    mc8Sound.stop();
+  }
+  mc8Sound.play();
+}
+
+function sfxMC9() {
+  if (!mc9Sound) return;
+
+  if (mc9Sound.isPlaying()) {
+    mc9Sound.stop();
+  }
+  mc9Sound.play();
+}
+
+function sfxMC10() {
+  if (!mc10Sound) return;
+
+  if (mc10Sound.isPlaying()) {
+    mc10Sound.stop();
+  }
+  mc10Sound.play();
+}
+
+function sfxMC11() {
+  if (!mc11Sound) return;
+
+  if (mc11Sound.isPlaying()) {
+    mc11Sound.stop();
+  }
+  mc11Sound.play();
+}
+
+function sfxMC12() {
+  if (!mc12Sound) return;
+
+  if (mc12Sound.isPlaying()) {
+    mc12Sound.stop();
+  }
+  mc12Sound.play();
+}
+
+function sfxMC13() {
+  if (!mc13Sound) return;
+
+  if (mc13Sound.isPlaying()) {
+    mc13Sound.stop();
+  }
+  mc13Sound.play();
+}
+
+function sfxMC14() {
+  if (!mc14Sound) return;
+
+  if (mc14Sound.isPlaying()) {
+    mc14Sound.stop();
+  }
+  mc14Sound.play();
+}
+
+function sfxMC15() {
+  if (!mc15Sound) return;
+
+  if (mc15Sound.isPlaying()) {
+    mc15Sound.stop();
+  }
+  mc15Sound.play();
+}
+
+function sfxMC16() {
+  if (!mc16Sound) return;
+
+  if (mc16Sound.isPlaying()) {
+    mc16Sound.stop();
+  }
+  mc16Sound.play();
+}
+
+function sfxMCWarning() {
+  if (!mcWarningSound) return;
+
+  if (mcWarningSound.isPlaying()) {
+    mcWarningSound.stop();
+  }
+  mcWarningSound.play();
 }
 
 // Stops background music and resets it to the beginning
@@ -74,6 +347,33 @@ function stopMusic() {
   if (bgMusic && bgMusic.isPlaying()) {
     bgMusic.stop();
   }
+}
+
+function pauseMusic() {
+  if (bgMusic && bgMusic.isPlaying()) {
+    bgMusic.pause();
+  }
+}
+
+function resumeMusic() {
+  if (!bgMusic) return;
+
+  if (bgMusic.isPaused()) {
+    bgMusic.play();
+    return;
+  }
+
+  if (!bgMusic.isPlaying()) {
+    bgMusic.setVolume(0.4);
+    bgMusic.loop();
+  }
+}
+
+function restartMusic() {
+  if (!bgMusic) return;
+  bgMusic.stop();
+  bgMusic.setVolume(0.4);
+  bgMusic.loop();
 }
 
 // =====================
@@ -121,8 +421,13 @@ function spawnObstacle(xOffset = 0) {
 // MAIN LOOP
 // =====================
 function draw() {
-  if (gameState === "tutorial") {
-    drawTutorial();
+  if (gameState === "start") {
+    drawStartScreen();
+    return;
+  }
+
+  if (gameState === "paused") {
+    drawPausedScreen();
     return;
   }
 
@@ -134,57 +439,675 @@ function draw() {
   drawAirPulses();
   drawObstacles();
 
-  // Drain distance using real elapsed time for smooth, frame-rate independent motion.
-  distance -= DISTANCE_DRAIN_PER_SECOND * (deltaTime / 1000);
-  distance = max(0, distance);
+  // Keep the suit leak visual active even while gameplay is frozen.
+  if (millis() - lastAirDrain > 1000) {
+    if (!gameplayFrozen) {
+      airSupply--;
+    }
+    spawnAirPulse();
+    lastAirDrain = millis();
+  }
+
+  if (!gameplayFrozen) {
+    // Drain distance using real elapsed time for smooth, frame-rate independent motion.
+    distance -= DISTANCE_DRAIN_PER_SECOND * (deltaTime / 1000);
+    distance = max(0, distance);
+
+    // Add one extra obstacle to each spawn wave every 400m traveled.
+    let distanceTravelled = startingDistance - distance;
+    if (distanceTravelled >= nextObstacleIncreaseAt) {
+      obstaclesPerWave++;
+      nextObstacleIncreaseAt += 400;
+    }
+
+    // Spawn obstacles on a timer
+    obstacleTimer++;
+    if (obstacleTimer >= obstacleInterval) {
+      for (let i = 0; i < obstaclesPerWave; i++) {
+        spawnObstacle(i * 120);
+      }
+      obstacleTimer = 0;
+      // Slightly randomise next interval so it doesn't feel robotic
+      obstacleInterval = floor(random(90, 160));
+    }
+
+    stardustTimer++;
+    if (stardustTimer >= stardustInterval) {
+      spawnStardust();
+      stardustTimer = 0;
+      // Vary the interval a little so it feels organic (4–6 seconds at 60fps)
+      stardustInterval = floor(random(200, 300));
+    }
+  }
 
   let targetProgressPct = constrain(1 - distance / startingDistance, 0, 1);
   distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
 
   drawUI();
-  drawEffectHUD();
 
-  // Add one extra obstacle to each spawn wave every 400m traveled.
-  let distanceTravelled = startingDistance - distance;
-  if (distanceTravelled >= nextObstacleIncreaseAt) {
-    obstaclesPerWave++;
-    nextObstacleIncreaseAt += 400;
+  if (millis() < lowAirWarningTextUntilMs) {
+    const warningMessage = "Warning! Air level low!";
+    const elapsedMs = millis() - lowAirWarningTextStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, warningMessage.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(24);
+    text(warningMessage.substring(0, charsVisible), width / 2, height / 2);
   }
 
-  // Drain air every 1 second
-  if (millis() - lastAirDrain > 1000) {
-    airSupply--;
-    spawnAirPulse();
-    lastAirDrain = millis();
-  }
+  if (gameplayFrozen && airSupplyPromptActive) {
+    const elapsedMs = millis() - airSupplyPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, AIR_SUPPLY_PROMPT_MESSAGE.length);
 
-  // Spawn obstacles on a timer
-  obstacleTimer++;
-  if (obstacleTimer >= obstacleInterval) {
-    for (let i = 0; i < obstaclesPerWave; i++) {
-      spawnObstacle(i * 120);
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      AIR_SUPPLY_PROMPT_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= AIR_SUPPLY_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const airPromptButtonLabel = "Check!";
+      const airPromptButtonW = textWidth(airPromptButtonLabel) + 40;
+      const airPromptButtonH = 42;
+      const airPromptButtonX = 15;
+      const airPromptButtonY = 15 + 24 + 14;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        airPromptButtonX,
+        airPromptButtonY,
+        airPromptButtonW,
+        airPromptButtonH,
+        10,
+      );
+
+      if (
+        mouseX > airPromptButtonX &&
+        mouseX < airPromptButtonX + airPromptButtonW &&
+        mouseY > airPromptButtonY &&
+        mouseY < airPromptButtonY + airPromptButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          airPromptButtonX,
+          airPromptButtonY,
+          airPromptButtonW,
+          airPromptButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        airPromptButtonLabel,
+        airPromptButtonX + airPromptButtonW / 2,
+        airPromptButtonY + airPromptButtonH / 2,
+      );
     }
-    obstacleTimer = 0;
-    // Slightly randomise next interval so it doesn't feel robotic
-    obstacleInterval = floor(random(90, 160));
   }
 
-  stardustTimer++;
-  if (stardustTimer >= stardustInterval) {
-    spawnStardust();
-    stardustTimer = 0;
-    // Vary the interval a little so it feels organic (4–6 seconds at 60fps)
-    stardustInterval = floor(random(240, 360));
+  if (gameplayFrozen && navigationPromptActive) {
+    const elapsedMs = millis() - navigationPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, NAVIGATION_PROMPT_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      NAVIGATION_PROMPT_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= NAVIGATION_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const navPromptButtonLabel = "Check!";
+      const navPromptButtonW = textWidth(navPromptButtonLabel) + 40;
+      const navPromptButtonH = 42;
+      const navPromptButtonX = width / 2 - navPromptButtonW / 2;
+      const navPromptButtonY = height - 40 - navPromptButtonH - 10;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        navPromptButtonX,
+        navPromptButtonY,
+        navPromptButtonW,
+        navPromptButtonH,
+        10,
+      );
+
+      if (
+        mouseX > navPromptButtonX &&
+        mouseX < navPromptButtonX + navPromptButtonW &&
+        mouseY > navPromptButtonY &&
+        mouseY < navPromptButtonY + navPromptButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          navPromptButtonX,
+          navPromptButtonY,
+          navPromptButtonW,
+          navPromptButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        navPromptButtonLabel,
+        navPromptButtonX + navPromptButtonW / 2,
+        navPromptButtonY + navPromptButtonH / 2,
+      );
+    }
   }
 
-  if (airSupply <= 0) {
+  if (gameplayFrozen && statusPromptActive) {
+    const elapsedMs = millis() - statusPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, STATUS_PROMPT_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      STATUS_PROMPT_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= STATUS_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const statusPromptButtonLabel = "Check!";
+      const statusPromptButtonW = textWidth(statusPromptButtonLabel) + 40;
+      const statusPromptButtonH = 42;
+      const statusPromptButtonX =
+        width - 15 - 280 + (280 - statusPromptButtonW) / 2;
+      const statusPromptButtonY = 15 + 24 + 14;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        statusPromptButtonX,
+        statusPromptButtonY,
+        statusPromptButtonW,
+        statusPromptButtonH,
+        10,
+      );
+
+      if (
+        mouseX > statusPromptButtonX &&
+        mouseX < statusPromptButtonX + statusPromptButtonW &&
+        mouseY > statusPromptButtonY &&
+        mouseY < statusPromptButtonY + statusPromptButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          statusPromptButtonX,
+          statusPromptButtonY,
+          statusPromptButtonW,
+          statusPromptButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        statusPromptButtonLabel,
+        statusPromptButtonX + statusPromptButtonW / 2,
+        statusPromptButtonY + statusPromptButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && checklistCompletePromptActive) {
+    const elapsedMs = millis() - checklistCompletePromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(
+      charsVisible,
+      0,
+      CHECKLIST_COMPLETE_MESSAGE.length,
+    );
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      CHECKLIST_COMPLETE_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= CHECKLIST_COMPLETE_MESSAGE.length) {
+      textSize(20);
+      const checklistButtonLabel = "Clear!";
+      const checklistButtonW = textWidth(checklistButtonLabel) + 40;
+      const checklistButtonH = 42;
+      const checklistButtonX = width / 2 - checklistButtonW / 2;
+      const checklistButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        checklistButtonX,
+        checklistButtonY,
+        checklistButtonW,
+        checklistButtonH,
+        10,
+      );
+
+      if (
+        mouseX > checklistButtonX &&
+        mouseX < checklistButtonX + checklistButtonW &&
+        mouseY > checklistButtonY &&
+        mouseY < checklistButtonY + checklistButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          checklistButtonX,
+          checklistButtonY,
+          checklistButtonW,
+          checklistButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        checklistButtonLabel,
+        checklistButtonX + checklistButtonW / 2,
+        checklistButtonY + checklistButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && thrusterControlPromptActive) {
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(THRUSTER_CONTROL_MESSAGE, width / 2, height / 2);
+
+    if (thrusterUpPressed && thrusterDownPressed) {
+      textSize(20);
+      const thrusterCheckButtonLabel = "Check!";
+      const thrusterCheckButtonW = textWidth(thrusterCheckButtonLabel) + 40;
+      const thrusterCheckButtonH = 42;
+      const thrusterCheckButtonX = width / 2 - thrusterCheckButtonW / 2;
+      const thrusterCheckButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        thrusterCheckButtonX,
+        thrusterCheckButtonY,
+        thrusterCheckButtonW,
+        thrusterCheckButtonH,
+        10,
+      );
+
+      if (
+        mouseX > thrusterCheckButtonX &&
+        mouseX < thrusterCheckButtonX + thrusterCheckButtonW &&
+        mouseY > thrusterCheckButtonY &&
+        mouseY < thrusterCheckButtonY + thrusterCheckButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          thrusterCheckButtonX,
+          thrusterCheckButtonY,
+          thrusterCheckButtonW,
+          thrusterCheckButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        thrusterCheckButtonLabel,
+        thrusterCheckButtonX + thrusterCheckButtonW / 2,
+        thrusterCheckButtonY + thrusterCheckButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && thrusterCompletePromptActive) {
+    const elapsedMs = millis() - thrusterCompletePromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, THRUSTER_COMPLETE_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      THRUSTER_COMPLETE_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= THRUSTER_COMPLETE_MESSAGE.length) {
+      textSize(20);
+      const finalCopyButtonLabel = "Copy";
+      const finalCopyButtonW = textWidth(finalCopyButtonLabel) + 40;
+      const finalCopyButtonH = 42;
+      const finalCopyButtonX = width / 2 - finalCopyButtonW / 2;
+      const finalCopyButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        finalCopyButtonX,
+        finalCopyButtonY,
+        finalCopyButtonW,
+        finalCopyButtonH,
+        10,
+      );
+
+      if (
+        mouseX > finalCopyButtonX &&
+        mouseX < finalCopyButtonX + finalCopyButtonW &&
+        mouseY > finalCopyButtonY &&
+        mouseY < finalCopyButtonY + finalCopyButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          finalCopyButtonX,
+          finalCopyButtonY,
+          finalCopyButtonW,
+          finalCopyButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        finalCopyButtonLabel,
+        finalCopyButtonX + finalCopyButtonW / 2,
+        finalCopyButtonY + finalCopyButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && collisionReminderPromptActive) {
+    const elapsedMs = millis() - collisionReminderPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(
+      charsVisible,
+      0,
+      COLLISION_REMINDER_MESSAGE.length,
+    );
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      COLLISION_REMINDER_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= COLLISION_REMINDER_MESSAGE.length) {
+      textSize(20);
+      const collisionCopyButtonLabel = "Copy";
+      const collisionCopyButtonW = textWidth(collisionCopyButtonLabel) + 40;
+      const collisionCopyButtonH = 42;
+      const collisionCopyButtonX = width / 2 - collisionCopyButtonW / 2;
+      const collisionCopyButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        collisionCopyButtonX,
+        collisionCopyButtonY,
+        collisionCopyButtonW,
+        collisionCopyButtonH,
+        10,
+      );
+
+      if (
+        mouseX > collisionCopyButtonX &&
+        mouseX < collisionCopyButtonX + collisionCopyButtonW &&
+        mouseY > collisionCopyButtonY &&
+        mouseY < collisionCopyButtonY + collisionCopyButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          collisionCopyButtonX,
+          collisionCopyButtonY,
+          collisionCopyButtonW,
+          collisionCopyButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        collisionCopyButtonLabel,
+        collisionCopyButtonX + collisionCopyButtonW / 2,
+        collisionCopyButtonY + collisionCopyButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && stardustWarningPromptActive) {
+    const elapsedMs = millis() - stardustWarningPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, STARDUST_WARNING_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      STARDUST_WARNING_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= STARDUST_WARNING_MESSAGE.length) {
+      textSize(20);
+      const stardustCopyButtonLabel = "Copy";
+      const stardustCopyButtonW = textWidth(stardustCopyButtonLabel) + 40;
+      const stardustCopyButtonH = 42;
+      const stardustCopyButtonX = width / 2 - stardustCopyButtonW / 2;
+      const stardustCopyButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        stardustCopyButtonX,
+        stardustCopyButtonY,
+        stardustCopyButtonW,
+        stardustCopyButtonH,
+        10,
+      );
+
+      if (
+        mouseX > stardustCopyButtonX &&
+        mouseX < stardustCopyButtonX + stardustCopyButtonW &&
+        mouseY > stardustCopyButtonY &&
+        mouseY < stardustCopyButtonY + stardustCopyButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          stardustCopyButtonX,
+          stardustCopyButtonY,
+          stardustCopyButtonW,
+          stardustCopyButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        stardustCopyButtonLabel,
+        stardustCopyButtonX + stardustCopyButtonW / 2,
+        stardustCopyButtonY + stardustCopyButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && oxygenWarningPromptActive) {
+    const elapsedMs = millis() - oxygenWarningPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, OXYGEN_WARNING_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      OXYGEN_WARNING_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= OXYGEN_WARNING_MESSAGE.length) {
+      textSize(20);
+      const oxygenCopyButtonLabel = "Copy";
+      const oxygenCopyButtonW = textWidth(oxygenCopyButtonLabel) + 40;
+      const oxygenCopyButtonH = 42;
+      const oxygenCopyButtonX = width / 2 - oxygenCopyButtonW / 2;
+      const oxygenCopyButtonY = height / 2 + 28;
+
+      fill(80, 140, 230);
+      noStroke();
+      rect(
+        oxygenCopyButtonX,
+        oxygenCopyButtonY,
+        oxygenCopyButtonW,
+        oxygenCopyButtonH,
+        10,
+      );
+
+      if (
+        mouseX > oxygenCopyButtonX &&
+        mouseX < oxygenCopyButtonX + oxygenCopyButtonW &&
+        mouseY > oxygenCopyButtonY &&
+        mouseY < oxygenCopyButtonY + oxygenCopyButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          oxygenCopyButtonX,
+          oxygenCopyButtonY,
+          oxygenCopyButtonW,
+          oxygenCopyButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        oxygenCopyButtonLabel,
+        oxygenCopyButtonX + oxygenCopyButtonW / 2,
+        oxygenCopyButtonY + oxygenCopyButtonH / 2,
+      );
+    }
+  }
+
+  if (gameplayFrozen && finalSignoffPromptActive) {
+    const elapsedMs = millis() - finalSignoffPromptStartMs;
+    let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+    charsVisible = constrain(charsVisible, 0, FINAL_SIGNOFF_MESSAGE.length);
+
+    fill(230);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(
+      FINAL_SIGNOFF_MESSAGE.substring(0, charsVisible),
+      width / 2,
+      height / 2,
+    );
+
+    if (charsVisible >= FINAL_SIGNOFF_MESSAGE.length) {
+      textSize(20);
+      const startMissionButtonLabel = "Start Mission";
+      const startMissionButtonW = textWidth(startMissionButtonLabel) + 40;
+      const startMissionButtonH = 42;
+      const startMissionButtonX = width / 2 - startMissionButtonW / 2;
+      const startMissionButtonY = height / 2 + 28;
+
+      fill(60, 180, 100);
+      noStroke();
+      rect(
+        startMissionButtonX,
+        startMissionButtonY,
+        startMissionButtonW,
+        startMissionButtonH,
+        10,
+      );
+
+      if (
+        mouseX > startMissionButtonX &&
+        mouseX < startMissionButtonX + startMissionButtonW &&
+        mouseY > startMissionButtonY &&
+        mouseY < startMissionButtonY + startMissionButtonH
+      ) {
+        fill(255, 255, 255, 35);
+        rect(
+          startMissionButtonX,
+          startMissionButtonY,
+          startMissionButtonW,
+          startMissionButtonH,
+          10,
+        );
+      }
+
+      fill(255);
+      textAlign(CENTER, CENTER);
+      text(
+        startMissionButtonLabel,
+        startMissionButtonX + startMissionButtonW / 2,
+        startMissionButtonY + startMissionButtonH / 2,
+      );
+    }
+  }
+
+  // Transition from the start sequence into active gameplay.
+  if (fadeInFromBlack) {
+    screenFadeAlpha = max(0, screenFadeAlpha - 8);
+    noStroke();
+    fill(0, 0, 0, screenFadeAlpha);
+    rect(0, 0, width, height);
+    if (screenFadeAlpha === 0) {
+      fadeInFromBlack = false;
+      if (gameplayFrozen && !postLandingBriefingActive) {
+        postLandingBriefingActive = true;
+        postLandingBriefingStartMs = millis();
+        sfxMC6();
+      }
+    }
+  }
+
+  if (gameplayFrozen && postLandingBriefingActive) {
+    drawPostLandingBriefingOverlay();
+  }
+
+  if (!gameplayFrozen && airSupply <= 0) {
+    gameState = "lose";
     stopMusic();
     drawLoseScreen();
     noLoop();
     return;
   }
 
-  if (distance <= 0) {
+  if (!gameplayFrozen && distance <= 0) {
+    gameState = "win";
     stopMusic();
     drawWinScreen();
     noLoop();
@@ -196,21 +1119,47 @@ function draw() {
 // PLAYER
 // =====================
 function updateAstronaut() {
+  if (gameplayFrozen && !wasGameplayFrozenLastFrame) {
+    frozenAstronautBaseY = astronautY;
+  }
+
   // Determine effective movement speed this frame
   let effectiveSpeed = speed;
   if (activeEffect === "slow") {
     effectiveSpeed *= SLOW_MULT; // movement is sluggish
   }
 
-  if (keyIsDown(UP_ARROW)) astronautY -= effectiveSpeed;
-  if (keyIsDown(DOWN_ARROW)) astronautY += effectiveSpeed;
+  if (!gameplayFrozen) {
+    if (keyIsDown(UP_ARROW)) astronautY -= effectiveSpeed;
+    if (keyIsDown(DOWN_ARROW)) astronautY += effectiveSpeed;
 
-  astronautY = constrain(astronautY, 0, 420);
+    astronautY = constrain(astronautY, 0, 420);
 
-  // Advance spin angle each frame while spinning
-  if (activeEffect === "spin") {
-    spinAngle += SPIN_RATE;
+    // Advance spin angle each frame while spinning
+    if (activeEffect === "spin") {
+      spinAngle += SPIN_RATE;
+    }
+  } else if (thrusterControlPromptActive) {
+    if (keyIsDown(UP_ARROW)) {
+      astronautY -= effectiveSpeed;
+      thrusterUpPressed = true;
+    }
+    if (keyIsDown(DOWN_ARROW)) {
+      astronautY += effectiveSpeed;
+      thrusterDownPressed = true;
+    }
+
+    astronautY = constrain(astronautY, 0, 420);
+  } else {
+    // While frozen, keep a gentle idle bob so the astronaut feels alive.
+    astronautY = constrain(
+      frozenAstronautBaseY + sin(frameCount * 0.02) * 8,
+      0,
+      420,
+    );
   }
+
+  wasGameplayFrozenLastFrame = gameplayFrozen;
 
   // Decide whether to draw (blink logic unchanged)
   let shouldDrawAstronaut = true;
@@ -246,7 +1195,13 @@ function drawAirPulses() {
   for (let i = airPulses.length - 1; i >= 0; i--) {
     let p = airPulses[i];
 
-    fill(180, 220, 255, p.alpha);
+    if (activeEffect === "spin") {
+      fill(255, 210, 30, p.alpha);
+    } else if (activeEffect === "slow") {
+      fill(255, 55, 55, p.alpha);
+    } else {
+      fill(180, 220, 255, p.alpha);
+    }
     circle(p.x, p.y, p.size);
 
     p.x -= p.speedX;
@@ -266,27 +1221,15 @@ function drawMars() {
   fill(255);
   noStroke();
   for (let s of stars) {
-    let wrappedX = (((s.x + groundOffset * 0.2) % width) + width) % width;
-    circle(wrappedX, s.y, 2);
+    if (!gameplayFrozen) {
+      s.x -= gameSpeed * 0.2;
+      if (s.x < 0) s.x += width;
+    }
+    circle(s.x, s.y, 2);
   }
 
   fill(180, 80, 50);
-  for (let x = -100; x < width + 100; x += 100) {
-    triangle(
-      x + (((groundOffset % 100) + 100) % 100),
-      500,
-      x + 50 + (((groundOffset % 100) + 100) % 100),
-      430,
-      x + 100 + (((groundOffset % 100) + 100) % 100),
-      500,
-    );
-  }
-
   rect(0, 500, width, 100);
-
-  groundOffset -= gameSpeed;
-
-  if (groundOffset < -10000) groundOffset += 10000;
 }
 
 // =====================
@@ -294,6 +1237,17 @@ function drawMars() {
 // =====================
 function drawObstacles() {
   noStroke();
+
+  if (gameplayFrozen) {
+    for (let o of obstacles) {
+      fill(120, 65, 40);
+      rect(o.x, o.y, o.w, o.h, 4);
+
+      fill(160, 100, 70, 80);
+      rect(o.x + 4, o.y + 4, o.w - 8, 6);
+    }
+    return;
+  }
 
   if (hitCooldownFrames > 0) {
     hitCooldownFrames--;
@@ -347,26 +1301,76 @@ function drawUI() {
   // Air bar background
   noStroke();
   fill(0, 0, 0, 100);
-  rect(15, 15, 200, 22, 4);
+  rect(15, 15, 200, 24, 4);
 
   // Air bar fill — colour changes with supply
   let pct = constrain(airSupply / 100, 0, 1);
   if (pct > 0.5) fill(60, 200, 120);
   else if (pct > 0.25) fill(230, 160, 30);
   else fill(220, 60, 50);
-  rect(16, 16, 200 * pct, 20, 4);
+
+  if (pct <= 0.25) {
+    if (!lowAirWarningPlayed) {
+      sfxMCWarning();
+      lowAirWarningPlayed = true;
+      lowAirWarningTextStartMs = millis();
+      lowAirWarningTextUntilMs = lowAirWarningTextStartMs + 2000;
+    }
+  } else {
+    lowAirWarningPlayed = false;
+  }
+
+  rect(16, 16, 200 * pct, 24, 4);
 
   // Air label
   fill(255);
-  textSize(14);
-  textAlign(LEFT);
-  text("AIR", 22, 32);
+  textSize(18);
+  textAlign(LEFT, CENTER);
+  text("AIR", 24, 30);
+
+  // Status bar on the right, matching AIR bar dimensions.
+  const statusBarX = width - 15 - 280;
+  const statusBarY = 15;
+  const statusBarW = 280;
+  const statusBarH = 24;
+
+  noStroke();
+  fill(0, 0, 0, 100);
+  rect(statusBarX, statusBarY, statusBarW, statusBarH, 4);
+
+  let statusR = 60;
+  let statusG = 200;
+  let statusB = 120;
+  if (activeEffect === "slow") {
+    statusR = 255;
+    statusG = 55;
+    statusB = 55;
+  } else if (activeEffect === "spin") {
+    statusR = 255;
+    statusG = 210;
+    statusB = 30;
+  }
+
+  fill(statusR, statusG, statusB, 150);
+  rect(statusBarX + 1, statusBarY + 1, statusBarW - 2, statusBarH - 2, 4);
+
+  fill(255);
+  textSize(18);
+  textAlign(LEFT, CENTER);
+  text("STATUS:", statusBarX + 8, statusBarY + statusBarH / 2 + 1);
+
+  textAlign(RIGHT, CENTER);
+  text(
+    statusText,
+    statusBarX + statusBarW - 8,
+    statusBarY + statusBarH / 2 + 1,
+  );
 
   // Distance bar along the bottom
   let barX = 15;
-  let barY = height - 38;
+  let barY = height - 40;
   let barW = width - 30;
-  let barH = 22;
+  let barH = 28;
 
   fill(0, 0, 0, 120);
   rect(barX, barY, barW, barH, 6);
@@ -374,349 +1378,899 @@ function drawUI() {
   rect(barX, barY, barW * distanceBarDisplay, barH, 5);
 
   fill(235);
-  textSize(14);
-  textAlign(LEFT);
-  text("PROGRESS TO BASE", barX + 6, barY + 16);
+  textSize(18);
+  textAlign(LEFT, CENTER);
+  text("PROGRESS TO BASE", barX + 8, barY + barH / 2 + 1);
 
-  textAlign(RIGHT);
-  text(floor(distance) + "m", barX + barW - 6, barY + 16);
+  textAlign(RIGHT, CENTER);
+  text(floor(distance) + "m", barX + barW - 10, barY + barH / 2 + 1);
 }
 
 // =====================
 // WIN / LOSE SCREENS
 // =====================
 function drawLoseScreen() {
-  background(0);
-  fill(255, 0, 0);
-  textSize(50);
+  background(8, 14, 34);
+  fill(255, 0, 0, 175);
   textAlign(CENTER);
+  textSize(45);
   text("YOU RAN OUT OF AIR!", width / 2, height / 2 - 20);
-  textSize(24);
-  fill(200);
-  text("Refresh the page to try again", width / 2, height / 2 + 40);
+
+  textSize(22);
+  fill(255, 255, 255, 175);
+  text("Press R to restart", width / 2, height / 2 + 50);
+  fill(255, 255, 255, 100);
+  text("TIP: press P to pause and unpause the game", width / 2, height - 50);
 }
 
 function drawWinScreen() {
-  background(0);
-  fill(0, 255, 0);
-  textSize(50);
+  background(8, 14, 34);
+  fill(60, 180, 100);
+  textSize(45);
   textAlign(CENTER);
   text("MISSION ACCOMPLISHED!", width / 2, height / 2 - 20);
   textSize(24);
-  fill(200);
-  text("Refresh the page to play again", width / 2, height / 2 + 40);
+  fill(255, 255, 255, 175);
+  text("Press R to play again", width / 2, height / 2 + 40);
 }
 
 // =====================
-// TUTORIAL
+// START SCREEN
 // =====================
-function drawTutorial() {
+function drawStartScreen() {
   background(10, 20, 50);
 
-  // Draw the mars scenery in background for atmosphere
+  // Draw the Mars scenery in the background for atmosphere.
   fill(255);
   noStroke();
   for (let s of stars) {
+    s.x -= gameSpeed * 0.9;
+    if (s.x < 0) s.x += width;
     circle(s.x, s.y, 2);
   }
-  fill(180, 80, 50);
-  for (let x = -100; x < width + 100; x += 100) {
-    triangle(x, 500, x + 50, 430, x + 100, 500);
+
+  if (launchTransitionActive) {
+    launchRocketX += 8;
+    drawRocketPlaceholder(launchRocketX, launchRocketY, 110);
+
+    screenFadeAlpha = min(255, screenFadeAlpha + 6);
+    noStroke();
+    fill(0, 0, 0, screenFadeAlpha);
+    rect(0, 0, width, height);
+
+    if (launchRocketX > width + 120 && screenFadeAlpha >= 255) {
+      launchTransitionActive = false;
+      fadeInFromBlack = true;
+      gameState = "playing";
+      lastAirDrain = millis();
+      gameplayFrozen = true;
+    }
+    return;
   }
-  rect(0, 500, width, 100);
 
-  // Dark panel
-  fill(0, 0, 0, 170);
-  noStroke();
-  rect(width / 2 - 340, 80, 680, 420, 16);
+  // Sideways rocket placeholder with smooth, slow bobbing motion.
+  const rocketBobY = sin(frameCount * 0.03) * 8;
+  const rocketTargetBaseY = showTutorialMessage ? 230 : 300;
+  rocketBaseYDisplay = lerp(rocketBaseYDisplay, rocketTargetBaseY, 0.05);
+  drawRocketPlaceholder(width / 2, rocketBaseYDisplay + rocketBobY, 110);
 
-  // Title
+  if (showTutorialMessage) {
+    const copyButtonX = width / 2 - COPY_BUTTON_W / 2;
+    fill(220);
+    textAlign(CENTER);
+    textSize(22);
+
+    if (tutorialMessageStep === 1) {
+      let elapsedMs = millis() - tutorialMessageStartMs;
+      let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      charsVisible = constrain(charsVisible, 0, TUTORIAL_MESSAGE_1.length);
+      text(TUTORIAL_MESSAGE_1.substring(0, charsVisible), width / 2, 490);
+
+      if (charsVisible >= TUTORIAL_MESSAGE_1.length) {
+        fill(80, 140, 230);
+        noStroke();
+        rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+
+        if (
+          mouseX > copyButtonX &&
+          mouseX < copyButtonX + COPY_BUTTON_W &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H
+        ) {
+          fill(255, 255, 255, 35);
+          rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+        }
+
+        fill(255);
+        textSize(20);
+        textAlign(CENTER, CENTER);
+        text("Copy!", width / 2, COPY_BUTTON_Y + COPY_BUTTON_H / 2);
+      }
+    } else if (tutorialMessageStep === 2) {
+      let elapsedMs = millis() - tutorialMessageStartMs;
+      let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      charsVisible = constrain(charsVisible, 0, TUTORIAL_MESSAGE_2.length);
+      text(TUTORIAL_MESSAGE_2.substring(0, charsVisible), width / 2, 490);
+
+      if (charsVisible >= TUTORIAL_MESSAGE_2.length) {
+        fill(80, 140, 230);
+        noStroke();
+        rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+
+        if (
+          mouseX > copyButtonX &&
+          mouseX < copyButtonX + COPY_BUTTON_W &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H
+        ) {
+          fill(255, 255, 255, 35);
+          rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+        }
+
+        fill(255);
+        textSize(20);
+        textAlign(CENTER, CENTER);
+        text("Copy...", width / 2, COPY_BUTTON_Y + COPY_BUTTON_H / 2);
+      }
+    } else if (tutorialMessageStep === 3) {
+      let elapsedMs = millis() - tutorialMessageStartMs;
+      let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      charsVisible = constrain(charsVisible, 0, TUTORIAL_MESSAGE_3.length);
+      text(TUTORIAL_MESSAGE_3.substring(0, charsVisible), width / 2, 490);
+
+      if (charsVisible >= TUTORIAL_MESSAGE_3.length) {
+        fill(80, 140, 230);
+        noStroke();
+        rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+
+        if (
+          mouseX > copyButtonX &&
+          mouseX < copyButtonX + COPY_BUTTON_W &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H
+        ) {
+          fill(255, 255, 255, 35);
+          rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+        }
+
+        fill(255);
+        textSize(20);
+        textAlign(CENTER, CENTER);
+        text("Copy...", width / 2, COPY_BUTTON_Y + COPY_BUTTON_H / 2);
+      }
+    } else if (tutorialMessageStep === 4) {
+      let elapsedMs = millis() - tutorialMessageStartMs;
+      let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      charsVisible = constrain(charsVisible, 0, TUTORIAL_MESSAGE_4.length);
+      text(TUTORIAL_MESSAGE_4.substring(0, charsVisible), width / 2, 490);
+
+      if (charsVisible >= TUTORIAL_MESSAGE_4.length) {
+        fill(80, 140, 230);
+        noStroke();
+        rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+
+        if (
+          mouseX > copyButtonX &&
+          mouseX < copyButtonX + COPY_BUTTON_W &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H
+        ) {
+          fill(255, 255, 255, 35);
+          rect(copyButtonX, COPY_BUTTON_Y, COPY_BUTTON_W, COPY_BUTTON_H, 10);
+        }
+
+        fill(255);
+        textSize(20);
+        textAlign(CENTER, CENTER);
+        text("Copy!", width / 2, COPY_BUTTON_Y + COPY_BUTTON_H / 2);
+      }
+    } else {
+      let elapsedMs = millis() - tutorialMessageStartMs;
+      let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      charsVisible = constrain(charsVisible, 0, TUTORIAL_MESSAGE_5.length);
+      text(TUTORIAL_MESSAGE_5.substring(0, charsVisible), width / 2, 490);
+
+      if (charsVisible >= TUTORIAL_MESSAGE_5.length) {
+        textSize(20);
+        const finalButtonW =
+          textWidth(FINAL_BUTTON_LABEL) + FINAL_BUTTON_PADDING_X * 2;
+        const finalButtonX = width / 2 - finalButtonW / 2;
+
+        fill(80, 140, 230);
+        noStroke();
+        rect(finalButtonX, COPY_BUTTON_Y, finalButtonW, COPY_BUTTON_H, 10);
+
+        if (
+          mouseX > finalButtonX &&
+          mouseX < finalButtonX + finalButtonW &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H
+        ) {
+          fill(255, 255, 255, 35);
+          rect(finalButtonX, COPY_BUTTON_Y, finalButtonW, COPY_BUTTON_H, 10);
+        }
+
+        fill(255);
+        textSize(20);
+        textAlign(CENTER, CENTER);
+        text(FINAL_BUTTON_LABEL, width / 2, COPY_BUTTON_Y + COPY_BUTTON_H / 2);
+      }
+    }
+    return;
+  }
+
+  // Title at the top
   fill(255);
   textAlign(CENTER);
-  textSize(32);
-  text("HOW TO PLAY", width / 2, 140);
+  textSize(45);
+  text("THE UNLUCKY ASTRONAUT", width / 2, 100);
 
-  // Page indicator
-  fill(160);
-  textSize(14);
-  text("Page " + (tutorialPage + 1) + " of " + TUTORIAL_PAGES, width / 2, 165);
+  // Menu buttons
+  const buttonY = 490;
+  const buttonW = 132;
+  const buttonH = 46;
+  const gap = 18;
+  const tutorialX = width / 2 - buttonW - gap / 2;
+  const startX = width / 2 + gap / 2;
 
-  // Page content
-  if (tutorialPage === 0) {
-    drawTutPage0();
-  } else if (tutorialPage === 1) {
-    drawTutPage1(); // Dynamically handled below
-  } else if (tutorialPage === 2) {
-    drawTutPage2();
-  } else if (tutorialPage === 3) {
-    drawTutPage3();
-  }
-
-  // Nav buttons
-  // PREV button
-  if (tutorialPage > 0) {
-    fill(80, 80, 120);
-    noStroke();
-    rect(width / 2 - 340, 460, 140, 44, 8);
-    fill(255);
-    textSize(18);
-    textAlign(CENTER);
-    text("← Back", width / 2 - 270, 487);
-  }
-
-  // NEXT or START button
   fill(60, 180, 100);
   noStroke();
-  rect(width / 2 + 200, 460, 140, 44, 8);
-  fill(255);
-  textSize(18);
-  textAlign(CENTER);
-  if (tutorialPage < TUTORIAL_PAGES - 1) {
-    text("Next →", width / 2 + 270, 487);
-  } else {
-    text("Start!", width / 2 + 270, 487);
+  rect(startX, buttonY, buttonW, buttonH, 12);
+  fill(70, 120, 210);
+  rect(tutorialX, buttonY, buttonW, buttonH, 12);
+
+  // Subtle hover effect
+  if (
+    mouseX > startX &&
+    mouseX < startX + buttonW &&
+    mouseY > buttonY &&
+    mouseY < buttonY + buttonH
+  ) {
+    fill(255, 255, 255, 35);
+    rect(startX, buttonY, buttonW, buttonH, 12);
   }
+  if (
+    mouseX > tutorialX &&
+    mouseX < tutorialX + buttonW &&
+    mouseY > buttonY &&
+    mouseY < buttonY + buttonH
+  ) {
+    fill(255, 255, 255, 35);
+    rect(tutorialX, buttonY, buttonW, buttonH, 12);
+  }
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(20);
+  text("START", startX + buttonW / 2, buttonY + buttonH / 2 + 1);
+  textSize(20);
+  text("TUTORIAL", tutorialX + buttonW / 2, buttonY + buttonH / 2 + 1);
 }
 
-// --- Tutorial page 0: Goal ---
-function drawTutPage0() {
-  fill(255);
-  textAlign(CENTER);
-  textSize(22);
-  text("Your Mission", width / 2, 210);
-
-  textSize(17);
-  fill(210, 210, 210);
-  text("You are an astronaut stranded on Mars.", width / 2, 255);
-  text("Run to the base before your air runs out!", width / 2, 285);
-
-  // Mini astronaut diagram
-  fill(255);
+function drawRocketPlaceholder(cx, cy, size) {
   noStroke();
-  rect(width / 2 - 280, 320, 30, 50);
 
-  // Arrow
-  stroke(80, 220, 120);
-  strokeWeight(3);
-  line(width / 2 - 240, 345, width / 2 + 220, 345);
-  fill(80, 220, 120);
-  noStroke();
-  triangle(width / 2 + 230, 345, width / 2 + 215, 337, width / 2 + 215, 353);
-
-  // Base marker
-  fill(255, 200, 50);
-  noStroke();
-  rect(width / 2 + 225, 305, 20, 60);
-  triangle(width / 2 + 225, 305, width / 2 + 245, 305, width / 2 + 225, 285);
-
-  fill(160);
-  textSize(14);
-  textAlign(LEFT);
-  noStroke();
-  text("you", width / 2 - 280, 315);
-  textAlign(RIGHT);
-  text("base", width / 2 + 250, 300);
-}
-
-// --- Tutorial page 1: Controls ---
-function drawTutPage1() {
-  fill(255);
-  textAlign(CENTER);
-  textSize(22);
-  text("Controls", width / 2, 210);
-
-  textSize(17);
-  fill(210, 210, 210);
-  text(
-    "Press and hold the Arrow Keys to navigate vertical space.",
-    width / 2,
-    255,
+  // Main rocket body: triangle laying on its side (pointing right).
+  fill(220, 230, 255, 230);
+  triangle(
+    cx + size * 0.55,
+    cy,
+    cx - size * 0.45,
+    cy - size * 0.35,
+    cx - size * 0.45,
+    cy + size * 0.35,
   );
 
-  textSize(16);
-  fill(255, 200, 50);
-  text("Press UP_ARROW to move up", width / 2, 300);
-  text("Press DOWN_ARROW to move down", width / 2, 330);
-
-  // Quick instructional box drawing
-  stroke(255, 150);
-  strokeWeight(1);
-  noFill();
-  rect(width / 2 - 60, 360, 40, 40, 4);
-  rect(width / 2 + 20, 360, 40, 40, 4);
-
-  fill(255);
-  noStroke();
-  textSize(14);
-  text("▲", width / 2 - 40, 385);
-  text("▼", width / 2 + 40, 385);
+  // Small exhaust glow at the back for readability.
+  fill(255, 180, 90, 180);
+  triangle(
+    cx - size * 0.45,
+    cy,
+    cx - size * 0.68,
+    cy - size * 0.14,
+    cx - size * 0.68,
+    cy + size * 0.14,
+  );
 }
 
-// --- Tutorial page 2: Obstacles ---
-function drawTutPage2() {
+function drawPausedScreen() {
+  background(8, 14, 34);
+
   fill(255);
   textAlign(CENTER);
+  textSize(64);
+  text("PAUSED", width / 2, height / 2 - 20);
+
   textSize(22);
-  text("Obstacles", width / 2, 210);
-
-  textSize(16);
   fill(210);
-  text("Rocks scroll in from the right at three heights.", width / 2, 248);
-  text("Touch a rock and you lose air faster!", width / 2, 272);
+  text("Press P to resume", width / 2, height / 2 + 50);
+  text("Press R to return to start", width / 2, height / 2 + 84);
+}
 
-  // Draw three rocks at different heights
-  let rockData = [
-    { rx: width / 2 + 100, ry: 360, rh: 55, label: "ground" },
-    { rx: width / 2 + 170, ry: 320, rh: 40, label: "mid" },
-    { rx: width / 2 + 240, ry: 290, rh: 65, label: "high" },
-  ];
+function drawPostLandingBriefingOverlay() {
+  const panelW = min(width - 160, 900);
+  const panelH = 210;
+  const panelX = width / 2 - panelW / 2;
+  const panelY = height / 2 - panelH / 2;
 
-  for (let r of rockData) {
-    fill(120, 65, 40);
+  const elapsedMs = millis() - postLandingBriefingStartMs;
+  let charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+  charsVisible = constrain(charsVisible, 0, POST_LANDING_MESSAGE.length);
+
+  fill(230);
+  textAlign(CENTER);
+  textSize(20);
+  text(
+    POST_LANDING_MESSAGE.substring(0, charsVisible),
+    width / 2,
+    height / 2 - 25,
+  );
+
+  if (charsVisible >= POST_LANDING_MESSAGE.length) {
+    textSize(20);
+    const btnW =
+      textWidth(POST_LANDING_BUTTON_LABEL) + POST_LANDING_BUTTON_PADDING_X * 2;
+    const btnX = width / 2 - btnW / 2;
+    const btnY = height / 2 + 10;
+
+    fill(80, 140, 230);
     noStroke();
-    rect(r.rx, r.ry, 38, r.rh, 4);
-    fill(160, 100, 70, 80);
-    rect(r.rx + 4, r.ry + 4, 30, 6);
-    fill(180);
-    textSize(12);
-    textAlign(CENTER);
-    text(r.label, r.rx + 19, r.ry - 6);
+    rect(btnX, btnY, btnW, POST_LANDING_BUTTON_H, 10);
+
+    if (
+      mouseX > btnX &&
+      mouseX < btnX + btnW &&
+      mouseY > btnY &&
+      mouseY < btnY + POST_LANDING_BUTTON_H
+    ) {
+      fill(255, 255, 255, 35);
+      rect(btnX, btnY, btnW, POST_LANDING_BUTTON_H, 10);
+    }
+
+    fill(255);
+    textSize(20);
+    textAlign(CENTER, CENTER);
+    text(
+      POST_LANDING_BUTTON_LABEL,
+      width / 2,
+      btnY + POST_LANDING_BUTTON_H / 2,
+    );
+  }
+}
+
+function resetGameToStart() {
+  astronautX = 150;
+  astronautY = 400;
+
+  obstacles = [];
+  obstacleTimer = 0;
+  obstacleInterval = 120;
+  obstaclesPerWave = 1;
+  nextObstacleIncreaseAt = 400;
+  spawnObstacle();
+
+  airSupply = 100;
+  distance = startingDistance;
+  distanceBarDisplay = 0;
+  lowAirWarningPlayed = false;
+  lowAirWarningTextStartMs = 0;
+  lowAirWarningTextUntilMs = 0;
+  lastAirDrain = millis();
+
+  airPulses = [];
+  blinkFramesLeft = 0;
+  hitCooldownFrames = 0;
+
+  stardustParticles = [];
+  stardustTimer = 0;
+  stardustInterval = 300;
+
+  activeEffect = null;
+  statusText = "STABLE";
+  spinAngle = 0;
+
+  gameState = "start";
+  showTutorialMessage = false;
+  tutorialMessageStep = 1;
+  rocketBaseYDisplay = 300;
+  launchTransitionActive = false;
+  fadeInFromBlack = false;
+  gameplayFrozen = false;
+  postLandingBriefingActive = false;
+  postLandingBriefingStartMs = 0;
+  airSupplyPromptActive = false;
+  airSupplyPromptStartMs = 0;
+  navigationPromptActive = false;
+  navigationPromptStartMs = 0;
+  statusPromptActive = false;
+  statusPromptStartMs = 0;
+  checklistCompletePromptActive = false;
+  checklistCompletePromptStartMs = 0;
+  thrusterControlPromptActive = false;
+  thrusterUpPressed = false;
+  thrusterDownPressed = false;
+  thrusterCompletePromptActive = false;
+  thrusterCompletePromptStartMs = 0;
+  collisionReminderPromptActive = false;
+  collisionReminderPromptStartMs = 0;
+  stardustWarningPromptActive = false;
+  stardustWarningPromptStartMs = 0;
+  oxygenWarningPromptActive = false;
+  oxygenWarningPromptStartMs = 0;
+  finalSignoffPromptActive = false;
+  finalSignoffPromptStartMs = 0;
+  screenFadeAlpha = 0;
+  launchRocketX = 0;
+  launchRocketY = 300;
+
+  restartMusic();
+
+  loop();
+}
+
+function keyPressed() {
+  userStartAudio();
+
+  let k = key.toLowerCase();
+
+  if (k === "p") {
+    if (
+      gameState === "playing" &&
+      gameplayFrozen &&
+      !postLandingBriefingActive
+    ) {
+      gameplayFrozen = false;
+      lastAirDrain = millis();
+    } else if (gameState === "playing") {
+      gameState = "paused";
+      pauseMusic();
+    } else if (gameState === "paused") {
+      gameState = "playing";
+      resumeMusic();
+      // Prevent immediate air drain on resume due to elapsed paused time.
+      lastAirDrain = millis();
+    }
+    return;
   }
 
-  // Astronaut dodging
-  fill(255);
-  noStroke();
-  rect(width / 2 - 150, 298, 30, 50);
-
-  // Arrow showing dodge upward
-  stroke(255, 200, 50);
-  strokeWeight(2);
-  drawArrow(width / 2 - 135, 345, width / 2 - 135, 300);
-  noStroke();
-
-  fill(255, 200, 50);
-  textSize(14);
-  textAlign(LEFT);
-  text("dodge!", width / 2 - 165, 370);
-}
-
-// --- Tutorial page 3: Air supply ---
-function drawTutPage3() {
-  fill(255);
-  textAlign(CENTER);
-  textSize(22);
-  text("Air Supply", width / 2, 210);
-
-  textSize(16);
-  fill(210);
-  text(
-    "Your air drains every second — and faster if you hit rocks.",
-    width / 2,
-    250,
-  );
-  text(
-    "Watch the bar top-left. Reach the base before it hits zero!",
-    width / 2,
-    278,
-  );
-
-  // Full bar
-  drawBarExample(
-    width / 2 - 200,
-    310,
-    1.0,
-    color(60, 200, 120),
-    "Full — keep going!",
-  );
-
-  // Half bar
-  drawBarExample(
-    width / 2 - 200,
-    355,
-    0.5,
-    color(230, 160, 30),
-    "Below 50% — watch out",
-  );
-
-  // Low bar
-  drawBarExample(
-    width / 2 - 200,
-    400,
-    0.15,
-    color(220, 60, 50),
-    "Critical — dodge everything!",
-  );
-
-  fill(160);
-  textSize(14);
-  textAlign(CENTER);
-  noStroke();
-  text(
-    "Press Start! to begin your mission. Good luck, astronaut.",
-    width / 2,
-    452,
-  );
-}
-
-function drawBarExample(x, y, pct, col, label) {
-  // Background
-  fill(0, 0, 0, 120);
-  noStroke();
-  rect(x, y, 200, 22, 4);
-  // Fill
-  fill(col);
-  rect(x + 1, y + 1, 198 * pct, 20, 3);
-  // Label
-  fill(220);
-  textSize(14);
-  textAlign(LEFT);
-  noStroke();
-  text(label, x + 210, y + 16);
-}
-
-function drawArrow(x1, y1, x2, y2) {
-  line(x1, y1, x2, y2);
-  let angle = atan2(y2 - y1, x2 - x1);
-  fill(255, 200, 50);
-  noStroke();
-  push();
-  translate(x2, y2);
-  rotate(angle);
-  triangle(0, 0, -12, -6, -12, 6);
-  pop();
+  if (k === "r") {
+    resetGameToStart();
+  }
 }
 
 // =====================
-// MOUSE CLICK — Tutorial nav
+// MOUSE CLICK — Menu buttons
 // =====================
 function mousePressed() {
-  if (gameState !== "tutorial") return;
-
   // Unlock audio on first interaction
   userStartAudio();
 
-  let cx = width / 2;
+  if (gameState === "playing" && gameplayFrozen && postLandingBriefingActive) {
+    const elapsedMs = millis() - postLandingBriefingStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
 
-  // NEXT / START button area
-  if (mouseX > cx + 200 && mouseX < cx + 340 && mouseY > 460 && mouseY < 504) {
-    if (tutorialPage < TUTORIAL_PAGES - 1) {
-      tutorialPage++;
-    } else {
-      // Start game
-      gameState = "playing";
-      lastAirDrain = millis();
+    if (charsVisible >= POST_LANDING_MESSAGE.length) {
+      textSize(18);
+      const btnW =
+        textWidth(POST_LANDING_BUTTON_LABEL) +
+        POST_LANDING_BUTTON_PADDING_X * 2;
+      const btnX = width / 2 - btnW / 2;
+      const btnY = height / 2 + 28;
+
+      if (
+        mouseX > btnX &&
+        mouseX < btnX + btnW &&
+        mouseY > btnY &&
+        mouseY < btnY + POST_LANDING_BUTTON_H
+      ) {
+        postLandingBriefingActive = false;
+        airSupplyPromptActive = true;
+        airSupplyPromptStartMs = millis();
+        sfxMC7();
+        return;
+      }
     }
+    return;
   }
 
-  // PREV button area
+  if (gameState === "playing" && gameplayFrozen && airSupplyPromptActive) {
+    const elapsedMs = millis() - airSupplyPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= AIR_SUPPLY_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const airPromptButtonW = textWidth("Check!") + 40;
+      const airPromptButtonH = 42;
+      const airPromptButtonX = 15;
+      const airPromptButtonY = 15 + 24 + 14;
+
+      if (
+        mouseX > airPromptButtonX &&
+        mouseX < airPromptButtonX + airPromptButtonW &&
+        mouseY > airPromptButtonY &&
+        mouseY < airPromptButtonY + airPromptButtonH
+      ) {
+        airSupplyPromptActive = false;
+        navigationPromptActive = true;
+        navigationPromptStartMs = millis();
+        sfxMC8();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (gameState === "playing" && gameplayFrozen && navigationPromptActive) {
+    const elapsedMs = millis() - navigationPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= NAVIGATION_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const navPromptButtonW = textWidth("Check!") + 40;
+      const navPromptButtonH = 42;
+      const navPromptButtonX = width / 2 - navPromptButtonW / 2;
+      const navPromptButtonY = height - 40 - navPromptButtonH - 10;
+
+      if (
+        mouseX > navPromptButtonX &&
+        mouseX < navPromptButtonX + navPromptButtonW &&
+        mouseY > navPromptButtonY &&
+        mouseY < navPromptButtonY + navPromptButtonH
+      ) {
+        navigationPromptActive = false;
+        statusPromptActive = true;
+        statusPromptStartMs = millis();
+        sfxMC9();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (gameState === "playing" && gameplayFrozen && statusPromptActive) {
+    const elapsedMs = millis() - statusPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= STATUS_PROMPT_MESSAGE.length) {
+      textSize(20);
+      const statusPromptButtonW = textWidth("Check!") + 40;
+      const statusPromptButtonH = 42;
+      const statusPromptButtonX =
+        width - 15 - 280 + (280 - statusPromptButtonW) / 2;
+      const statusPromptButtonY = 15 + 24 + 14;
+
+      if (
+        mouseX > statusPromptButtonX &&
+        mouseX < statusPromptButtonX + statusPromptButtonW &&
+        mouseY > statusPromptButtonY &&
+        mouseY < statusPromptButtonY + statusPromptButtonH
+      ) {
+        statusPromptActive = false;
+        checklistCompletePromptActive = true;
+        checklistCompletePromptStartMs = millis();
+        sfxMC10();
+        return;
+      }
+    }
+
+    return;
+  }
+
   if (
-    tutorialPage > 0 &&
-    mouseX > cx - 340 &&
-    mouseX < cx - 200 &&
-    mouseY > 460 &&
-    mouseY < 504
+    gameState === "playing" &&
+    gameplayFrozen &&
+    checklistCompletePromptActive
   ) {
-    tutorialPage--;
+    const elapsedMs = millis() - checklistCompletePromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= CHECKLIST_COMPLETE_MESSAGE.length) {
+      textSize(20);
+      const finalButtonW = textWidth("Clear!") + 40;
+      const finalButtonH = 42;
+      const finalButtonX = width / 2 - finalButtonW / 2;
+      const finalButtonY = height / 2 + 28;
+
+      if (
+        mouseX > finalButtonX &&
+        mouseX < finalButtonX + finalButtonW &&
+        mouseY > finalButtonY &&
+        mouseY < finalButtonY + finalButtonH
+      ) {
+        checklistCompletePromptActive = false;
+        thrusterControlPromptActive = true;
+        thrusterUpPressed = false;
+        thrusterDownPressed = false;
+        sfxMC11();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (
+    gameState === "playing" &&
+    gameplayFrozen &&
+    thrusterControlPromptActive
+  ) {
+    if (thrusterUpPressed && thrusterDownPressed) {
+      textSize(20);
+      const thrusterCheckButtonW = textWidth("Check!") + 40;
+      const thrusterCheckButtonH = 42;
+      const thrusterCheckButtonX = width / 2 - thrusterCheckButtonW / 2;
+      const thrusterCheckButtonY = height / 2 + 28;
+
+      if (
+        mouseX > thrusterCheckButtonX &&
+        mouseX < thrusterCheckButtonX + thrusterCheckButtonW &&
+        mouseY > thrusterCheckButtonY &&
+        mouseY < thrusterCheckButtonY + thrusterCheckButtonH
+      ) {
+        thrusterControlPromptActive = false;
+        thrusterCompletePromptActive = true;
+        thrusterCompletePromptStartMs = millis();
+        sfxMC12();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (
+    gameState === "playing" &&
+    gameplayFrozen &&
+    thrusterCompletePromptActive
+  ) {
+    const elapsedMs = millis() - thrusterCompletePromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= THRUSTER_COMPLETE_MESSAGE.length) {
+      textSize(20);
+      const finalCopyButtonW = textWidth("Copy") + 40;
+      const finalCopyButtonH = 42;
+      const finalCopyButtonX = width / 2 - finalCopyButtonW / 2;
+      const finalCopyButtonY = height / 2 + 28;
+
+      if (
+        mouseX > finalCopyButtonX &&
+        mouseX < finalCopyButtonX + finalCopyButtonW &&
+        mouseY > finalCopyButtonY &&
+        mouseY < finalCopyButtonY + finalCopyButtonH
+      ) {
+        thrusterCompletePromptActive = false;
+        collisionReminderPromptActive = true;
+        collisionReminderPromptStartMs = millis();
+        sfxMC13();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (
+    gameState === "playing" &&
+    gameplayFrozen &&
+    collisionReminderPromptActive
+  ) {
+    const elapsedMs = millis() - collisionReminderPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= COLLISION_REMINDER_MESSAGE.length) {
+      textSize(20);
+      const collisionCopyButtonW = textWidth("Copy") + 40;
+      const collisionCopyButtonH = 42;
+      const collisionCopyButtonX = width / 2 - collisionCopyButtonW / 2;
+      const collisionCopyButtonY = height / 2 + 28;
+
+      if (
+        mouseX > collisionCopyButtonX &&
+        mouseX < collisionCopyButtonX + collisionCopyButtonW &&
+        mouseY > collisionCopyButtonY &&
+        mouseY < collisionCopyButtonY + collisionCopyButtonH
+      ) {
+        collisionReminderPromptActive = false;
+        stardustWarningPromptActive = true;
+        stardustWarningPromptStartMs = millis();
+        sfxMC14();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (
+    gameState === "playing" &&
+    gameplayFrozen &&
+    stardustWarningPromptActive
+  ) {
+    const elapsedMs = millis() - stardustWarningPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= STARDUST_WARNING_MESSAGE.length) {
+      textSize(20);
+      const stardustCopyButtonW = textWidth("Copy") + 40;
+      const stardustCopyButtonH = 42;
+      const stardustCopyButtonX = width / 2 - stardustCopyButtonW / 2;
+      const stardustCopyButtonY = height / 2 + 28;
+
+      if (
+        mouseX > stardustCopyButtonX &&
+        mouseX < stardustCopyButtonX + stardustCopyButtonW &&
+        mouseY > stardustCopyButtonY &&
+        mouseY < stardustCopyButtonY + stardustCopyButtonH
+      ) {
+        stardustWarningPromptActive = false;
+        oxygenWarningPromptActive = true;
+        oxygenWarningPromptStartMs = millis();
+        sfxMC15();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (gameState === "playing" && gameplayFrozen && oxygenWarningPromptActive) {
+    const elapsedMs = millis() - oxygenWarningPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= OXYGEN_WARNING_MESSAGE.length) {
+      textSize(20);
+      const oxygenCopyButtonW = textWidth("Copy") + 40;
+      const oxygenCopyButtonH = 42;
+      const oxygenCopyButtonX = width / 2 - oxygenCopyButtonW / 2;
+      const oxygenCopyButtonY = height / 2 + 28;
+
+      if (
+        mouseX > oxygenCopyButtonX &&
+        mouseX < oxygenCopyButtonX + oxygenCopyButtonW &&
+        mouseY > oxygenCopyButtonY &&
+        mouseY < oxygenCopyButtonY + oxygenCopyButtonH
+      ) {
+        oxygenWarningPromptActive = false;
+        finalSignoffPromptActive = true;
+        finalSignoffPromptStartMs = millis();
+        sfxMC16();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (gameState === "playing" && gameplayFrozen && finalSignoffPromptActive) {
+    const elapsedMs = millis() - finalSignoffPromptStartMs;
+    const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+
+    if (charsVisible >= FINAL_SIGNOFF_MESSAGE.length) {
+      textSize(20);
+      const startMissionButtonW = textWidth("Start Mission") + 40;
+      const startMissionButtonH = 42;
+      const startMissionButtonX = width / 2 - startMissionButtonW / 2;
+      const startMissionButtonY = height / 2 + 28;
+
+      if (
+        mouseX > startMissionButtonX &&
+        mouseX < startMissionButtonX + startMissionButtonW &&
+        mouseY > startMissionButtonY &&
+        mouseY < startMissionButtonY + startMissionButtonH
+      ) {
+        finalSignoffPromptActive = false;
+        gameplayFrozen = false;
+        lastAirDrain = millis();
+        return;
+      }
+    }
+
+    return;
+  }
+
+  if (gameState === "start") {
+    if (showTutorialMessage) {
+      const elapsedMs = millis() - tutorialMessageStartMs;
+      const charsVisible = floor(elapsedMs / TUTORIAL_TYPE_MS_PER_CHAR);
+      const currentMessageLen =
+        tutorialMessageStep === 1
+          ? TUTORIAL_MESSAGE_1.length
+          : tutorialMessageStep === 2
+            ? TUTORIAL_MESSAGE_2.length
+            : tutorialMessageStep === 3
+              ? TUTORIAL_MESSAGE_3.length
+              : tutorialMessageStep === 4
+                ? TUTORIAL_MESSAGE_4.length
+                : TUTORIAL_MESSAGE_5.length;
+      const copyButtonX = width / 2 - COPY_BUTTON_W / 2;
+      textSize(20);
+      const finalButtonW =
+        textWidth(FINAL_BUTTON_LABEL) + FINAL_BUTTON_PADDING_X * 2;
+      const finalButtonX = width / 2 - finalButtonW / 2;
+
+      if (charsVisible >= currentMessageLen) {
+        const overGenericCopyButton =
+          mouseX > copyButtonX &&
+          mouseX < copyButtonX + COPY_BUTTON_W &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H;
+
+        const overFinalButton =
+          mouseX > finalButtonX &&
+          mouseX < finalButtonX + finalButtonW &&
+          mouseY > COPY_BUTTON_Y &&
+          mouseY < COPY_BUTTON_Y + COPY_BUTTON_H;
+
+        if (
+          (tutorialMessageStep < 5 && overGenericCopyButton) ||
+          (tutorialMessageStep === 5 && overFinalButton)
+        ) {
+          if (tutorialMessageStep === 1) {
+            tutorialMessageStep = 2;
+            tutorialMessageStartMs = millis();
+            sfxMC2();
+          } else if (tutorialMessageStep === 2) {
+            tutorialMessageStep = 3;
+            tutorialMessageStartMs = millis();
+            sfxMC3();
+          } else if (tutorialMessageStep === 3) {
+            tutorialMessageStep = 4;
+            tutorialMessageStartMs = millis();
+            sfxMC4();
+          } else if (tutorialMessageStep === 4) {
+            tutorialMessageStep = 5;
+            tutorialMessageStartMs = millis();
+            sfxMC5();
+          } else if (tutorialMessageStep === 5) {
+            // Start cinematic launch: rocket exits right, fade out, then fade into gameplay.
+            launchTransitionActive = true;
+            showTutorialMessage = false;
+            launchRocketX = width / 2;
+            launchRocketY = rocketBaseYDisplay;
+            screenFadeAlpha = 0;
+          }
+          return;
+        }
+      }
+
+      return;
+    }
+
+    const buttonY = 490;
+    const buttonW = 132;
+    const buttonH = 46;
+    const gap = 18;
+    const tutorialX = width / 2 - buttonW - gap / 2;
+    const startX = width / 2 + gap / 2;
+
+    if (
+      mouseX > startX &&
+      mouseX < startX + buttonW &&
+      mouseY > buttonY &&
+      mouseY < buttonY + buttonH
+    ) {
+      showTutorialMessage = false;
+      tutorialMessageStep = 1;
+      gameState = "playing";
+      lastAirDrain = millis();
+      return;
+    }
+
+    if (
+      mouseX > tutorialX &&
+      mouseX < tutorialX + buttonW &&
+      mouseY > buttonY &&
+      mouseY < buttonY + buttonH
+    ) {
+      showTutorialMessage = true;
+      tutorialMessageStep = 1;
+      tutorialMessageStartMs = millis();
+      sfxMC1();
+      return;
+    }
   }
 }
 
@@ -737,6 +2291,39 @@ function spawnStardust() {
 }
 
 function drawStardust() {
+  if (gameplayFrozen) {
+    for (let d of stardustParticles) {
+      let r, g, b;
+      if (d.type === "slow") {
+        r = 255;
+        g = 55;
+        b = 55;
+      } else {
+        r = 255;
+        g = 210;
+        b = 30;
+      }
+
+      noFill();
+      stroke(r, g, b, 28);
+      strokeWeight(d.radius * 1.4);
+      circle(d.x, d.y, d.radius * 3.6);
+
+      stroke(r, g, b, 55);
+      strokeWeight(d.radius * 0.7);
+      circle(d.x, d.y, d.radius * 2.4);
+
+      stroke(r, g, b, 90);
+      strokeWeight(d.radius * 0.35);
+      circle(d.x, d.y, d.radius * 1.5);
+
+      noStroke();
+      fill(r, g, b, 210);
+      circle(d.x, d.y, d.radius);
+    }
+    return;
+  }
+
   for (let i = stardustParticles.length - 1; i >= 0; i--) {
     let d = stardustParticles[i];
 
@@ -796,8 +2383,16 @@ function drawStardust() {
       // Hit! New effect replaces any existing one immediately.
       activeEffect = d.type;
 
+      if (activeEffect === "spin") {
+        statusText = "ORIENTATION LOST";
+      } else if (activeEffect === "slow") {
+        statusText = "REDUCED MOBILITY";
+      }
+
       // Reset spin angle so the rotation starts fresh
       if (activeEffect === "spin") spinAngle = 0;
+
+      sfxBoostUp();
 
       stardustParticles.splice(i, 1);
       // Optional: play a soft audio cue here if you add one later
