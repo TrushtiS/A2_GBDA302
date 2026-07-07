@@ -23,6 +23,9 @@ let lowAirWarningTextStartMs = 0;
 let lowAirWarningTextUntilMs = 0;
 
 let gameSpeed = 5;
+ 
+let activeEffectStartMs = 0;
+const ACTIVE_EFFECT_DURATION_MS = 15000; // 15 seconds
 
 let stars = [];
 let airPulses = [];
@@ -570,7 +573,11 @@ function draw() {
 
   let targetProgressPct = constrain(1 - distance / startingDistance, 0, 1);
   distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
-
+  
+  if (activeEffect && millis() - activeEffectStartMs > ACTIVE_EFFECT_DURATION_MS) {
+  activeEffect = null;
+  statusText = "STABLE";
+}
   drawUI();
 
   if (millis() < lowAirWarningTextUntilMs) {
@@ -1827,6 +1834,7 @@ function drawPostLandingBriefingOverlay() {
 }
 
 function resetGameToStart() {
+  activeEffectStartMs = 0;
   astronautX = 150;
   astronautY = 400;
 
@@ -2484,6 +2492,18 @@ function drawStardust() {
 
       stardustParticles.splice(i, 1);
       // Optional: play a soft audio cue here if you add one later
+    }
+    if (distSq < d.radius * d.radius) {
+      activeEffect = d.type;
+      if (activeEffect === "spin") {
+        statusText = "ORIENTATION LOST";
+      } else if (activeEffect === "slow") {
+        statusText = "REDUCED MOBILITY";
+      }
+      if (activeEffect === "spin") spinAngle = 0;
+      activeEffectStartMs = millis(); // ← ADD THIS LINE
+      sfxBoostUp();
+      stardustParticles.splice(i, 1);
     }
   }
 }
