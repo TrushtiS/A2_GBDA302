@@ -163,6 +163,8 @@ let imgVolcano2;
 let rockImages = [];
 // Cloud images array
 let cloudImages = [];
+let bgPlanets = [];
+let bgClouds = [];
 
 //stardust
 let stardustParticles = [];
@@ -206,33 +208,33 @@ function preload() {
   mcWarningSound = loadSound("assets/sounds/MCwarning.mp3");
 
   //images
-  imgDefaultPose     = loadimage("assets/image/defaultpose.png");
-  imgCelebratoryPose = loadimage("assets/image/celebratorypose.png");
-  imgDeathPose       = loadimage("assets/image/deathpose.png"); 
-  imgMarsRock1 = loadimage("assets/image/marsrock1.png");
-  imgMarsRock2 = loadimage("assets/image/marsrock2.png");
-  imgMarsRock3 = loadimage("assets/image/marsrock3.png"); 
-  imgMarsOrb   = loadimage("assets/image/marsorb.png");
-  imgSaturnOrb = loadimage("assets/image/saturnorb.png");
-  imgJupiterBigCloud    = loadimage("assets/image/jupiterbigcloud.png");
-  imgJupiterMediumCloud = loadimage("assets/image/jupitermediumcloud.png");
-  imgJupiterSmallClouds = loadimage("assets/image/jupitersmallclouds.png");
-  imgJupiterLineCloud   = loadimage("assets/image/jupiterlineclouds.png");
-  imgOrangeStardust = loadimage("assets/image/orangestardust.png");
-  imgPinkStardust   = loadimage("assets/image/pinkstardust.png");
-  imgBigClearCrystal   = loadimage("assets/image/bigclearcrystal.png");
-  imgBlackCrystal      = loadimage("assets/image/blackcrystal.png");
-  imgBlackSmallCrystal = loadimage("assets/image/blacksmallcrystal.png");
-  imgClearCrystal      = loadimage("assets/image/clearcrystal.png");
-  imgGreenBigCrystal   = loadimage("assets/image/greenbigcrystal.png");
-  imgGreenCrystal      = loadimage("assets/image/greencrystal.png");
-  imgGreenRockCrystal  = loadimage("assets/image/greenrockcrystal.png");
-  imgGreenSmallCrystal = loadimage("assets/image/greensmallcrystal.png");
-  imgPurpleBigCrystal  = loadimage("assets/image/purplebigcrystal.png");
-  imgPurpleCrystal     = loadimage("assets/image/purplecrystal.png");
-  imgPurpleSmallCrystal= loadimage("assets/image/purplesmallcrystal.png");
-  imgVolcano1 = loadimage("assets/image/volcanoe1.png");
-  imgVolcano2 = loadimage("assets/image/volcanoe2.png");
+  imgDefaultPose     = loadImage("assets/image/defaultpose.png");
+  imgCelebratoryPose = loadImage("assets/image/celebratorypose.png");
+  imgDeathPose       = loadImage("assets/image/deathpose.png"); 
+  imgMarsRock1 = loadImage("assets/image/marsrock1.png");
+  imgMarsRock2 = loadImage("assets/image/marsrock2.png");
+  imgMarsRock3 = loadImage("assets/image/marsrock3.png"); 
+  imgMarsOrb   = loadImage("assets/image/marsorb.png");
+  imgSaturnOrb = loadImage("assets/image/saturnorb.png");
+  imgJupiterBigCloud    = loadImage("assets/image/jupiterbigcloud.png");
+  imgJupiterMediumCloud = loadImage("assets/image/jupitermediumcloud.png");
+  imgJupiterSmallClouds = loadImage("assets/image/jupitersmallclouds.png");
+  imgJupiterLineCloud   = loadImage("assets/image/jupiterlineclouds.png");
+  imgOrangeStardust = loadImage("assets/image/orangestardust.png");
+  imgPinkStardust   = loadImage("assets/image/pinkstardust.avif");
+  imgBigClearCrystal   = loadImage("assets/image/bigclearcrystal.png");
+  imgBlackCrystal      = loadImage("assets/image/blackcrystal.png");
+  imgBlackSmallCrystal = loadImage("assets/image/blacksmallcrystal.png");
+  imgClearCrystal      = loadImage("assets/image/clearcrystal.png");
+  imgGreenBigCrystal   = loadImage("assets/image/greenbigcrystal.png");
+  imgGreenCrystal      = loadImage("assets/image/greencrystal.png");
+  imgGreenRockCrystal  = loadImage("assets/image/greenrockcrystal.png");
+  imgGreenSmallCrystal = loadImage("assets/image/greensmallcrystal.png");
+  imgPurpleBigCrystal  = loadImage("assets/image/purplebigcrystal.png");
+  imgPurpleCrystal     = loadImage("assets/image/purplecrystal.png");
+  imgPurpleSmallCrystal= loadImage("assets/image/purplesmallcrystal.png");
+  imgVolcano1 = loadImage("assets/image/volcanoe1.png");
+  imgVolcano2 = loadImage("assets/image/volcanoe2.png");
 }
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
@@ -1799,7 +1801,7 @@ function drawPostLandingBriefingOverlay() {
     const btnW =
       textWidth(POST_LANDING_BUTTON_LABEL) + POST_LANDING_BUTTON_PADDING_X * 2;
     const btnX = width / 2 - btnW / 2;
-    const btnY = height / 2 + 10;
+    const btnY = height / 2 + 28;
 
     fill(80, 140, 230);
     noStroke();
