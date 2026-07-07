@@ -1305,6 +1305,15 @@ function drawAirPulses() {
 function drawMars() {
   background(10, 20, 50);
 
+  // Draw the Mars scenery in the background for atmosphere.
+  fill(255);
+  noStroke();
+  for (let s of stars) {
+    s.x -= gameSpeed * 0.9;
+    if (s.x < 0) s.x += width;
+    circle(s.x, s.y, 2);
+  }
+
   // -------------------------------------------------
   // Floating Clouds
   // -------------------------------------------------
