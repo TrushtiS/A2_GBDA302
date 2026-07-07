@@ -163,8 +163,6 @@ let imgVolcano2;
 let rockImages = [];
 // Cloud images array
 let cloudImages = [];
-let bgPlanets = [];
-let bgClouds = [];
 
 //stardust
 let stardustParticles = [];
@@ -221,7 +219,7 @@ function preload() {
   imgJupiterSmallClouds = loadimage("assets/image/jupitersmallclouds.png");
   imgJupiterLineCloud   = loadimage("assets/image/jupiterlineclouds.png");
   imgOrangeStardust = loadimage("assets/image/orangestardust.png");
-  imgPinkStardust   = loadimage("assets/image/pinkstardust.avif");
+  imgPinkStardust   = loadimage("assets/image/pinkstardust.png");
   imgBigClearCrystal   = loadimage("assets/image/bigclearcrystal.png");
   imgBlackCrystal      = loadimage("assets/image/blackcrystal.png");
   imgBlackSmallCrystal = loadimage("assets/image/blacksmallcrystal.png");
@@ -1801,7 +1799,7 @@ function drawPostLandingBriefingOverlay() {
     const btnW =
       textWidth(POST_LANDING_BUTTON_LABEL) + POST_LANDING_BUTTON_PADDING_X * 2;
     const btnX = width / 2 - btnW / 2;
-    const btnY = height / 2 + 28;
+    const btnY = height / 2 + 10;
 
     fill(80, 140, 230);
     noStroke();
