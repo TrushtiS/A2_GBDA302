@@ -129,6 +129,43 @@ let mc15Sound;
 let mc16Sound;
 let mcWarningSound;
 
+//Images
+// Image assets
+let imgDefaultPose;
+let imgCelebratoryPose;
+let imgDeathPose;
+let imgMarsRock1 
+let imgMarsRock2
+let imgMarsRock3;
+let imgMarsOrb
+let imgSaturnOrb;
+let imgJupiterBigCloud
+let imgJupiterMediumCloud
+let imgJupiterSmallClouds
+let imgJupiterLineCloud;
+let imgOrangeStardust
+let imgPinkStardust;
+let imgBigClearCrystal
+let imgBlackCrystal
+let imgBlackSmallCrystal;
+let imgClearCrystal
+let imgGreenBigCrystal
+let imgGreenCrystal
+let imgGreenRockCrystal;
+let imgGreenSmallCrystal
+let imgPurpleBigCrystal
+let imgPurpleCrystal
+let imgPurpleSmallCrystal;
+let imgVolcano1
+let imgVolcano2;
+
+// Rock images array 
+let rockImages = [];
+// Cloud images array
+let cloudImages = [];
+let bgPlanets = [];
+let bgClouds = [];
+
 //stardust
 let stardustParticles = [];
 let stardustTimer = 0;
@@ -148,6 +185,7 @@ const OBS_HEIGHTS = [380, 235, 70];
 // AUDIO ASSETS
 // =====================
 function preload() {
+  //sound
   bgMusic = loadSound("assets/sounds/background_music.mp3");
   hitSound = loadSound("assets/sounds/hit_obstacle_sound_effect.mp3");
   boostUpSound = loadSound("assets/sounds/boost_up_sound_effect.mp3");
@@ -168,6 +206,35 @@ function preload() {
   mc15Sound = loadSound("assets/sounds/MC15.mp3");
   mc16Sound = loadSound("assets/sounds/MC16.mp3");
   mcWarningSound = loadSound("assets/sounds/MCwarning.mp3");
+
+  //images
+  imgDefaultPose     = loadimage("assets/image/defaultpose.png");
+  imgCelebratoryPose = loadimage("assets/image/celebratorypose.png");
+  imgDeathPose       = loadimage("assets/image/deathpose.png"); 
+  imgMarsRock1 = loadimage("assets/image/marsrock1.png");
+  imgMarsRock2 = loadimage("assets/image/marsrock2.png");
+  imgMarsRock3 = loadimage("assets/image/marsrock3.png"); 
+  imgMarsOrb   = loadimage("assets/image/marsorb.png");
+  imgSaturnOrb = loadimage("assets/image/saturnorb.png");
+  imgJupiterBigCloud    = loadimage("assets/image/jupiterbigcloud.png");
+  imgJupiterMediumCloud = loadimage("assets/image/jupitermediumcloud.png");
+  imgJupiterSmallClouds = loadimage("assets/image/jupitersmallclouds.png");
+  imgJupiterLineCloud   = loadimage("assets/image/jupiterlineclouds.png");
+  imgOrangeStardust = loadimage("assets/image/orangestardust.png");
+  imgPinkStardust   = loadimage("assets/image/pinkstardust.avif");
+  imgBigClearCrystal   = loadimage("assets/image/bigclearcrystal.png");
+  imgBlackCrystal      = loadimage("assets/image/blackcrystal.png");
+  imgBlackSmallCrystal = loadimage("assets/image/blacksmallcrystal.png");
+  imgClearCrystal      = loadimage("assets/image/clearcrystal.png");
+  imgGreenBigCrystal   = loadimage("assets/image/greenbigcrystal.png");
+  imgGreenCrystal      = loadimage("assets/image/greencrystal.png");
+  imgGreenRockCrystal  = loadimage("assets/image/greenrockcrystal.png");
+  imgGreenSmallCrystal = loadimage("assets/image/greensmallcrystal.png");
+  imgPurpleBigCrystal  = loadimage("assets/image/purplebigcrystal.png");
+  imgPurpleCrystal     = loadimage("assets/image/purplecrystal.png");
+  imgPurpleSmallCrystal= loadimage("assets/image/purplesmallcrystal.png");
+  imgVolcano1 = loadimage("assets/image/volcanoe1.png");
+  imgVolcano2 = loadimage("assets/image/volcanoe2.png");
 }
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
@@ -376,25 +443,46 @@ function restartMusic() {
   bgMusic.loop();
 }
 
+function spawnBgCloud(startX) {
+  let img = random(cloudImages);
+  bgClouds.push({
+    img,
+    x: startX !== undefined ? startX : width + 200,
+    y: random(60, 300),
+    size: random(160, 320),
+    speed: random(0.4, 1.0),
+    alpha: random(30, 70),
+  });
+}
+
 // =====================
 // SETUP
 // =====================
 function setup() {
   createCanvas(1200, 600);
-
+  imageMode(CENTER);
+ 
+  // Fill lookup arrays after preload
+  rockImages  = [imgMarsRock1, imgMarsRock2, imgMarsRock3];
+  cloudImages = [imgJupiterBigCloud, imgJupiterMediumCloud, imgJupiterSmallClouds, imgJupiterLineCloud];
+ 
   for (let i = 0; i < 50; i++) {
-    stars.push({
-      x: random(width),
-      y: random(height),
-    });
+    stars.push({ x: random(width), y: random(height) });
   }
-
-  if (!bgMusic.isPlaying()) {
-    bgMusic.setVolume(0.4);
-    bgMusic.loop();
+ 
+  // Seed background planets (decorative, very slow parallax)
+  bgPlanets = [
+    { img: imgMarsOrb,   x: width * 0.78, y: 120, size: 140, speed: 0.05 },
+    { img: imgSaturnOrb, x: width * 0.35, y:  80, size: 100, speed: 0.03 },
+  ];
+ 
+  // Seed a handful of background clouds
+  for (let i = 0; i < 4; i++) {
+    spawnBgCloud(random(width)); // pre-scatter across screen on start
   }
-
-  // Spawn first obstacle
+ 
+  if (!bgMusic.isPlaying()) { bgMusic.setVolume(0.4); bgMusic.loop(); }
+ 
   spawnObstacle();
 }
 
@@ -409,11 +497,13 @@ function spawnObstacle(xOffset = 0) {
     { w: 30, h: 100 },
   ];
   let s = random(sizes);
+  let img = random(rockImages);
   obstacles.push({
     x: width + 20 + xOffset,
     y: yPos,
     w: s.w,
     h: s.h,
+    img: img
   });
 }
 
@@ -1170,21 +1260,18 @@ function updateAstronaut() {
   }
 
   if (shouldDrawAstronaut) {
-    noStroke();
-    fill(255);
+    let aw = 60, ah = 90;
+    let cx = astronautX + 25;
+    let cy = astronautY + 40;
 
     if (activeEffect === "spin") {
-      // Rotate around the astronaut's centre
-      let cx = astronautX + 25; // half of rect width  (50)
-      let cy = astronautY + 40; // half of rect height (80)
       push();
       translate(cx, cy);
       rotate(spinAngle);
-      rect(-25, -40, 50, 80); // centred on (0,0)
+      image(imgDefaultPose, 0, 0, aw, ah);
       pop();
     } else {
-      // Normal draw
-      rect(astronautX, astronautY, 50, 80);
+      image(imgDefaultPose, cx, cy, aw, ah);
     }
   }
 }
@@ -1218,77 +1305,78 @@ function drawAirPulses() {
 // ENVIRONMENT
 // =====================
 function drawMars() {
-  fill(255);
-  noStroke();
+  // Stars
+  fill(255); noStroke();
   for (let s of stars) {
-    if (!gameplayFrozen) {
-      s.x -= gameSpeed * 0.2;
-      if (s.x < 0) s.x += width;
-    }
+    if (!gameplayFrozen) { s.x -= gameSpeed * 0.2; if (s.x < 0) s.x += width; }
     circle(s.x, s.y, 2);
   }
-
+ 
+  // Background planets (very slow parallax)
+  for (let p of bgPlanets) {
+    tint(255, 180); // slight transparency
+    image(p.img, p.x, p.y, p.size, p.size);
+    noTint();
+    if (!gameplayFrozen) {
+      p.x -= p.speed;
+      if (p.x < -p.size) p.x = width + p.size;
+    }
+  }
+ 
+  // Mid-layer clouds
+  for (let i = bgClouds.length - 1; i >= 0; i--) {
+    let c = bgClouds[i];
+    tint(255, c.alpha);
+    image(c.img, c.x, c.y, c.size, c.size * 0.55);
+    noTint();
+    if (!gameplayFrozen) {
+      c.x -= c.speed;
+      if (c.x < -c.size) bgClouds.splice(i, 1);
+    }
+  }
+  // Keep cloud count topped up
+  if (!gameplayFrozen && bgClouds.length < 5 && random() < 0.005) spawnBgCloud();
+ 
+  // Mars ground
   fill(180, 80, 50);
+  noStroke();
   rect(0, 500, width, 100);
+ 
+  // Volcano decorations on the ground
+  push();
+  imageMode(CORNER);
+  image(imgVolcano1, 0,   460, 90, 90);
+  image(imgVolcano2, width - 100, 455, 100, 95);
+  pop();
 }
 
 // =====================
 // OBSTACLES
 // =====================
 function drawObstacles() {
-  noStroke();
-
-  if (gameplayFrozen) {
-    for (let o of obstacles) {
-      fill(120, 65, 40);
-      rect(o.x, o.y, o.w, o.h, 4);
-
-      fill(160, 100, 70, 80);
-      rect(o.x + 4, o.y + 4, o.w - 8, 6);
-    }
-    return;
-  }
-
-  if (hitCooldownFrames > 0) {
-    hitCooldownFrames--;
-  }
-
+  if (hitCooldownFrames > 0 && !gameplayFrozen) hitCooldownFrames--;
+ 
   for (let i = obstacles.length - 1; i >= 0; i--) {
     let o = obstacles[i];
-
-    // Draw rock
-    fill(120, 65, 40);
-    rect(o.x, o.y, o.w, o.h, 4);
-
-    // Simple highlight
-    fill(160, 100, 70, 80);
-    rect(o.x + 4, o.y + 4, o.w - 8, 6);
-
-    // Move
-    o.x -= gameSpeed;
-
-    // Remove if off screen
-    if (o.x < -100) {
-      obstacles.splice(i, 1);
-      continue;
-    }
-
-    // Collision
-    let hit =
-      astronautX + 50 > o.x &&
-      astronautX < o.x + o.w &&
-      astronautY + 80 > o.y &&
-      astronautY < o.y + o.h;
-
-    if (hit) {
-      // Keep original difficulty: lose air continuously while touching a rock.
-      airSupply -= 1;
-
-      // Throttle feedback so blink/sound don't retrigger every frame.
-      if (hitCooldownFrames === 0) {
-        sfxHit();
-        blinkFramesLeft = BLINK_TOGGLES * BLINK_TOGGLE_EVERY;
-        hitCooldownFrames = 20;
+ 
+    // Draw rock image centred on its bounding box
+    image(o.img, o.x + o.w / 2, o.y + o.h / 2, o.w, o.h);
+ 
+    if (!gameplayFrozen) {
+      o.x -= gameSpeed;
+      if (o.x < -100) { obstacles.splice(i, 1); continue; }
+ 
+      // Collision
+      let hit =
+        astronautX + 50 > o.x && astronautX < o.x + o.w &&
+        astronautY + 80 > o.y && astronautY < o.y + o.h;
+      if (hit) {
+        airSupply -= 1;
+        if (hitCooldownFrames === 0) {
+          sfxHit();
+          blinkFramesLeft = BLINK_TOGGLES * BLINK_TOGGLE_EVERY;
+          hitCooldownFrames = 20;
+        }
       }
     }
   }
@@ -1391,6 +1479,7 @@ function drawUI() {
 // =====================
 function drawLoseScreen() {
   background(8, 14, 34);
+  image(imgDeathPose, width / 2, height / 2 - 100, 80, 110);
   fill(255, 0, 0, 175);
   textAlign(CENTER);
   textSize(45);
@@ -1405,6 +1494,7 @@ function drawLoseScreen() {
 
 function drawWinScreen() {
   background(8, 14, 34);
+  image(imgCelebratoryPose, width / 2, height / 2 - 100, 80, 110);
   fill(60, 180, 100);
   textSize(45);
   textAlign(CENTER);
@@ -1711,7 +1801,7 @@ function drawPostLandingBriefingOverlay() {
     const btnW =
       textWidth(POST_LANDING_BUTTON_LABEL) + POST_LANDING_BUTTON_PADDING_X * 2;
     const btnX = width / 2 - btnW / 2;
-    const btnY = height / 2 + 10;
+    const btnY = height / 2 + 28;
 
     fill(80, 140, 230);
     noStroke();
