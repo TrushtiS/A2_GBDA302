@@ -158,6 +158,7 @@ let imgPurpleCrystal
 let imgPurpleSmallCrystal;
 let imgVolcano1
 let imgVolcano2;
+let imgBackground;
 
 // Rock images array 
 let rockImages = [];
@@ -235,6 +236,7 @@ function preload() {
   imgPurpleSmallCrystal= loadImage("assets/image/purplesmallcrystal.png");
   imgVolcano1 = loadImage("assets/image/volcanoe1.png");
   imgVolcano2 = loadImage("assets/image/volcanoe2.png");
+  imgBackground = loadImage("assets/image/background.png");
 }
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
@@ -449,7 +451,7 @@ function spawnBgCloud(startX) {
     img,
     x: startX !== undefined ? startX : width + 200,
     y: random(60, 300),
-    size: random(160, 320),
+    size: random(260, 430),
     speed: random(0.4, 1.0),
     alpha: random(30, 70),
   });
@@ -469,13 +471,7 @@ function setup() {
   for (let i = 0; i < 50; i++) {
     stars.push({ x: random(width), y: random(height) });
   }
- 
-  // Seed background planets (decorative, very slow parallax)
-  bgPlanets = [
-    { img: imgMarsOrb,   x: width * 0.78, y: 120, size: 140, speed: 0.05 },
-    { img: imgSaturnOrb, x: width * 0.35, y:  80, size: 100, speed: 0.03 },
-  ];
- 
+  
   // Seed a handful of background clouds
   for (let i = 0; i < 4; i++) {
     spawnBgCloud(random(width)); // pre-scatter across screen on start
@@ -492,9 +488,9 @@ function setup() {
 function spawnObstacle(xOffset = 0) {
   let yPos = random(OBS_HEIGHTS);
   let sizes = [
-    { w: 40, h: 50 },
-    { w: 55, h: 70 },
-    { w: 30, h: 100 },
+    { w: 70, h: 90 },
+    { w: 90, h: 110 },
+    { w: 60, h: 140 },
   ];
   let s = random(sizes);
   let img = random(rockImages);
@@ -521,7 +517,9 @@ function draw() {
     return;
   }
 
-  background(10, 20, 50);
+  imageMode(CORNER);
+  image(imgBackground, 0, 0, width, height);
+  imageMode(CENTER);
 
   drawMars();
   drawStardust();
@@ -1260,7 +1258,7 @@ function updateAstronaut() {
   }
 
   if (shouldDrawAstronaut) {
-    let aw = 60, ah = 90;
+    let aw = 75, ah = 110;
     let cx = astronautX + 25;
     let cy = astronautY + 40;
 
@@ -1305,49 +1303,40 @@ function drawAirPulses() {
 // ENVIRONMENT
 // =====================
 function drawMars() {
-  // Stars
-  fill(255); noStroke();
-  for (let s of stars) {
-    if (!gameplayFrozen) { s.x -= gameSpeed * 0.2; if (s.x < 0) s.x += width; }
-    circle(s.x, s.y, 2);
-  }
- 
-  // Background planets (very slow parallax)
-  for (let p of bgPlanets) {
-    tint(255, 180); // slight transparency
-    image(p.img, p.x, p.y, p.size, p.size);
-    noTint();
-    if (!gameplayFrozen) {
-      p.x -= p.speed;
-      if (p.x < -p.size) p.x = width + p.size;
-    }
-  }
- 
-  // Mid-layer clouds
+  background(10, 20, 50);
+
+  // -------------------------------------------------
+  // Floating Clouds
+  // -------------------------------------------------
   for (let i = bgClouds.length - 1; i >= 0; i--) {
     let c = bgClouds[i];
-    tint(255, c.alpha);
+
     image(c.img, c.x, c.y, c.size, c.size * 0.55);
-    noTint();
+
     if (!gameplayFrozen) {
       c.x -= c.speed;
-      if (c.x < -c.size) bgClouds.splice(i, 1);
+
+      if (c.x < -c.size) {
+        bgClouds.splice(i, 1);
+      }
     }
   }
-  // Keep cloud count topped up
-  if (!gameplayFrozen && bgClouds.length < 5 && random() < 0.005) spawnBgCloud();
- 
-  // Mars ground
-  fill(180, 80, 50);
+
+  if (!gameplayFrozen && bgClouds.length < 5 && random() < 0.005) {
+    spawnBgCloud();
+  }
+
+  // -------------------------------------------------
+  // Ground
+  // -------------------------------------------------
   noStroke();
+  fill(170, 75, 45);
   rect(0, 500, width, 100);
- 
-  // Volcano decorations on the ground
-  push();
-  imageMode(CORNER);
-  image(imgVolcano1, 0,   460, 90, 90);
-  image(imgVolcano2, width - 100, 455, 100, 95);
-  pop();
+
+  // Soft highlight on the ground
+  fill(210, 115, 70, 60);
+  rect(0, 500, width, 8);
+
 }
 
 // =====================
