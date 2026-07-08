@@ -11,6 +11,9 @@ let obstacleTimer = 0;
 let obstacleInterval = 120; // frames between spawns
 let obstaclesPerWave = 1;
 let nextObstacleIncreaseAt = 400;
+let baseRevealX = null;
+let baseRevealStarted = false;
+let removedFinalTwoObstacles = false;
 
 let airSupply = 100;
 let statusText = "STABLE";
@@ -23,7 +26,7 @@ let lowAirWarningTextStartMs = 0;
 let lowAirWarningTextUntilMs = 0;
 
 let gameSpeed = 5;
- 
+
 let activeEffectStartMs = 0;
 const ACTIVE_EFFECT_DURATION_MS = 15000; // 15 seconds
 
@@ -53,6 +56,7 @@ const COPY_BUTTON_H = 42;
 const COPY_BUTTON_Y = 520;
 const FINAL_BUTTON_LABEL = "Roger that!";
 const FINAL_BUTTON_PADDING_X = 20;
+const START_ROCKET_SIZE = 300;
 const POST_LANDING_MESSAGE =
   "Great touchdown, Astronaut! Clear to commence post-landing checklist?";
 const POST_LANDING_BUTTON_LABEL = "Clear!";
@@ -130,45 +134,44 @@ let mc13Sound;
 let mc14Sound;
 let mc15Sound;
 let mc16Sound;
+let mc17Sound;
+let mc18Sound;
 let mcWarningSound;
+let playedLoseCue = false;
+let playedWinCue = false;
 
 //Images
 // Image assets
 let imgDefaultPose;
 let imgCelebratoryPose;
 let imgDeathPose;
-let imgMarsRock1 
-let imgMarsRock2
+let imgMarsRock1;
+let imgMarsRock2;
 let imgMarsRock3;
-let imgMarsOrb
+let imgMarsOrb;
 let imgSaturnOrb;
-let imgJupiterBigCloud
-let imgJupiterMediumCloud
-let imgJupiterSmallClouds
-let imgJupiterLineCloud;
-let imgOrangeStardust
+let imgOrangeStardust;
 let imgPinkStardust;
-let imgBigClearCrystal
-let imgBlackCrystal
+let imgBigClearCrystal;
+let imgBlackCrystal;
 let imgBlackSmallCrystal;
-let imgClearCrystal
-let imgGreenBigCrystal
-let imgGreenCrystal
+let imgClearCrystal;
+let imgGreenBigCrystal;
+let imgGreenCrystal;
 let imgGreenRockCrystal;
-let imgGreenSmallCrystal
-let imgPurpleBigCrystal
-let imgPurpleCrystal
+let imgGreenSmallCrystal;
+let imgPurpleBigCrystal;
+let imgPurpleCrystal;
 let imgPurpleSmallCrystal;
-let imgVolcano1
+let imgVolcano1;
 let imgVolcano2;
-let imgRocket;
+let imgRocket2;
+let imgBase;
 
-// Rock images array 
+// Rock images array
 let rockImages = [];
-// Cloud images array
-let cloudImages = [];
+let obstacleAlphaMasks = new Map();
 let bgPlanets = [];
-let bgClouds = [];
 
 //stardust
 let stardustParticles = [];
@@ -184,6 +187,8 @@ const SPIN_RATE = 0.08;
 const SLOW_MULT = 0.4;
 // Obstacle Y positions (3 heights): ground, mid, high
 const OBS_HEIGHTS = [380, 235, 70];
+const OBSTACLE_ALPHA_HIT_THRESHOLD = 20;
+const BASE_REVEAL_DISTANCE = 150;
 
 // =====================
 // AUDIO ASSETS
@@ -209,37 +214,37 @@ function preload() {
   mc14Sound = loadSound("assets/sounds/MC14.mp3");
   mc15Sound = loadSound("assets/sounds/MC15.mp3");
   mc16Sound = loadSound("assets/sounds/MC16.mp3");
+  mc17Sound = loadSound("assets/sounds/MC17.mp3");
+  mc18Sound = loadSound("assets/sounds/MC18.mp3");
   mcWarningSound = loadSound("assets/sounds/MCwarning.mp3");
 
   //images
-  imgDefaultPose     = loadImage("assets/image/defaultpose.png");
+  imgDefaultPose = loadImage("assets/image/defaultpose.png");
   imgCelebratoryPose = loadImage("assets/image/celebratorypose.png");
-  imgDeathPose       = loadImage("assets/image/deathpose.png"); 
+  imgDeathPose = loadImage("assets/image/deathpose.png");
   imgMarsRock1 = loadImage("assets/image/marsrock1.png");
   imgMarsRock2 = loadImage("assets/image/marsrock2.png");
-  imgMarsRock3 = loadImage("assets/image/marsrock3.png"); 
-  imgMarsOrb   = loadImage("assets/image/marsorb.png");
+  imgMarsRock3 = loadImage("assets/image/marsrock3.png");
+  imgMarsOrb = loadImage("assets/image/marsorb.png");
   imgSaturnOrb = loadImage("assets/image/saturnorb.png");
-  imgJupiterBigCloud    = loadImage("assets/image/jupiterbigcloud.png");
-  imgJupiterMediumCloud = loadImage("assets/image/jupitermediumcloud.png");
-  imgJupiterSmallClouds = loadImage("assets/image/jupitersmallclouds.png");
-  imgJupiterLineCloud   = loadImage("assets/image/jupiterlineclouds.png");
   imgOrangeStardust = loadImage("assets/image/orangestardust.png");
-  imgPinkStardust   = loadImage("assets/image/pinkstardust.avif");
-  imgBigClearCrystal   = loadImage("assets/image/bigclearcrystal.png");
-  imgBlackCrystal      = loadImage("assets/image/blackcrystal.png");
+  imgPinkStardust = loadImage("assets/image/pinkstardust.avif");
+  imgBigClearCrystal = loadImage("assets/image/bigclearcrystal.png");
+  imgBlackCrystal = loadImage("assets/image/blackcrystal.png");
   imgBlackSmallCrystal = loadImage("assets/image/blacksmallcrystal.png");
-  imgClearCrystal      = loadImage("assets/image/clearcrystal.png");
-  imgGreenBigCrystal   = loadImage("assets/image/greenbigcrystal.png");
-  imgGreenCrystal      = loadImage("assets/image/greencrystal.png");
-  imgGreenRockCrystal  = loadImage("assets/image/greenrockcrystal.png");
+  imgClearCrystal = loadImage("assets/image/clearcrystal.png");
+  imgGreenBigCrystal = loadImage("assets/image/greenbigcrystal.png");
+  imgGreenCrystal = loadImage("assets/image/greencrystal.png");
+  imgGreenRockCrystal = loadImage("assets/image/greenrockcrystal.png");
   imgGreenSmallCrystal = loadImage("assets/image/greensmallcrystal.png");
-  imgPurpleBigCrystal  = loadImage("assets/image/purplebigcrystal.png");
-  imgPurpleCrystal     = loadImage("assets/image/purplecrystal.png");
-  imgPurpleSmallCrystal= loadImage("assets/image/purplesmallcrystal.png");
+  imgPurpleBigCrystal = loadImage("assets/image/purplebigcrystal.png");
+  imgPurpleCrystal = loadImage("assets/image/purplecrystal.png");
+  imgPurpleSmallCrystal = loadImage("assets/image/purplesmallcrystal.png");
   imgVolcano1 = loadImage("assets/image/volcanoe1.png");
   imgVolcano2 = loadImage("assets/image/volcanoe2.png");
-  imgRocket = loadImage("assets/image/rocket.png");}
+  imgRocket2 = loadImage("assets/image/rocket2.png");
+  imgBase = loadImage("assets/image/base.png");
+}
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
 function sfxHit() {
@@ -404,6 +409,24 @@ function sfxMC16() {
   mc16Sound.play();
 }
 
+function sfxMC17() {
+  if (!mc17Sound) return;
+
+  if (mc17Sound.isPlaying()) {
+    mc17Sound.stop();
+  }
+  mc17Sound.play();
+}
+
+function sfxMC18() {
+  if (!mc18Sound) return;
+
+  if (mc18Sound.isPlaying()) {
+    mc18Sound.stop();
+  }
+  mc18Sound.play();
+}
+
 function sfxMCWarning() {
   if (!mcWarningSound) return;
 
@@ -447,41 +470,99 @@ function restartMusic() {
   bgMusic.loop();
 }
 
-function spawnBgCloud(startX) {
-  let img = random(cloudImages);
-  bgClouds.push({
-    img,
-    x: startX !== undefined ? startX : width + 200,
-    y: random(60, 300),
-    size: random(260, 430),
-    speed: random(0.4, 1.0),
-    alpha: random(30, 70),
-  });
-}
-
 // =====================
 // SETUP
 // =====================
 function setup() {
   createCanvas(1200, 600);
   imageMode(CENTER);
- 
+
   // Fill lookup arrays after preload
-  rockImages  = [imgMarsRock1, imgMarsRock2, imgMarsRock3];
-  cloudImages = [imgJupiterBigCloud, imgJupiterMediumCloud, imgJupiterSmallClouds, imgJupiterLineCloud];
- 
+  rockImages = [imgMarsRock1, imgMarsRock2, imgMarsRock3];
+  for (let img of rockImages) {
+    cacheObstacleAlphaMask(img);
+  }
+
   for (let i = 0; i < 50; i++) {
     stars.push({ x: random(width), y: random(height) });
   }
-  
-  // Seed a handful of background clouds
-  for (let i = 0; i < 4; i++) {
-    spawnBgCloud(random(width)); // pre-scatter across screen on start
+
+  if (!bgMusic.isPlaying()) {
+    bgMusic.setVolume(0.4);
+    bgMusic.loop();
   }
- 
-  if (!bgMusic.isPlaying()) { bgMusic.setVolume(0.4); bgMusic.loop(); }
- 
+
   spawnObstacle();
+}
+
+function cacheObstacleAlphaMask(img) {
+  if (!img || obstacleAlphaMasks.has(img)) return;
+
+  img.loadPixels();
+
+  let px = img.pixels;
+  let alpha = new Uint8ClampedArray(img.width * img.height);
+  for (let i = 0, p = 3; i < alpha.length; i++, p += 4) {
+    alpha[i] = px[p];
+  }
+
+  obstacleAlphaMasks.set(img, {
+    width: img.width,
+    height: img.height,
+    alpha,
+  });
+}
+
+function obstaclePixelIsOpaqueAtWorld(o, worldX, worldY) {
+  if (!o || !o.img || o.w <= 0 || o.h <= 0) return false;
+
+  let mask = obstacleAlphaMasks.get(o.img);
+  if (!mask) return false;
+
+  let u = floor(((worldX - o.x) / o.w) * mask.width);
+  let v = floor(((worldY - o.y) / o.h) * mask.height);
+
+  if (u < 0 || u >= mask.width || v < 0 || v >= mask.height) return false;
+
+  let a = mask.alpha[v * mask.width + u];
+  return a >= OBSTACLE_ALPHA_HIT_THRESHOLD;
+}
+
+function obstacleHitAstronaut(o) {
+  // Broad phase first: reject quickly when rectangles do not overlap.
+  let ax1 = astronautX;
+  let ay1 = astronautY;
+  let ax2 = astronautX + 50;
+  let ay2 = astronautY + 80;
+
+  let ox1 = o.x;
+  let oy1 = o.y;
+  let ox2 = o.x + o.w;
+  let oy2 = o.y + o.h;
+
+  let left = max(ax1, ox1);
+  let right = min(ax2, ox2);
+  let top = max(ay1, oy1);
+  let bottom = min(ay2, oy2);
+
+  if (left >= right || top >= bottom) return false;
+
+  // Narrow phase: sample only the overlap region and require opaque obstacle pixels.
+  let sampleStep = 2;
+  let startX = floor(left);
+  let endX = ceil(right);
+  let startY = floor(top);
+  let endY = ceil(bottom);
+
+  for (let y = startY; y <= endY; y += sampleStep) {
+    for (let x = startX; x <= endX; x += sampleStep) {
+      if (obstaclePixelIsOpaqueAtWorld(o, x, y)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // =====================
@@ -489,20 +570,49 @@ function setup() {
 // =====================
 function spawnObstacle(xOffset = 0) {
   let yPos = random(OBS_HEIGHTS);
-  let sizes = [
-    { w: 70, h: 90 },
-    { w: 90, h: 110 },
-    { w: 60, h: 140 },
+  let bounds = [
+    { w: 96, h: 122 },
+    { w: 112, h: 138 },
+    { w: 76, h: 176 },
   ];
-  let s = random(sizes);
+  let s = random(bounds);
   let img = random(rockImages);
+  let aspect = 1;
+
+  if (img && img.width > 0 && img.height > 0) {
+    aspect = img.width / img.height;
+  }
+
+  // Fit inside the selected bounds while keeping the image's native proportions.
+  const obstacleSizeScale = 1.25;
+  let w = s.w * obstacleSizeScale;
+  let h = s.h * obstacleSizeScale;
+  if (w / h > aspect) {
+    w = h * aspect;
+  } else {
+    h = w / aspect;
+  }
+
   obstacles.push({
     x: width + 20 + xOffset,
     y: yPos,
-    w: s.w,
-    h: s.h,
-    img: img
+    w,
+    h,
+    img: img,
+    hasHitAstronaut: false,
   });
+}
+
+function removeRightmostObstacles(count) {
+  for (let removed = 0; removed < count && obstacles.length > 0; removed++) {
+    let rightmostIndex = 0;
+    for (let i = 1; i < obstacles.length; i++) {
+      if (obstacles[i].x > obstacles[rightmostIndex].x) {
+        rightmostIndex = i;
+      }
+    }
+    obstacles.splice(rightmostIndex, 1);
+  }
 }
 
 // =====================
@@ -542,6 +652,11 @@ function draw() {
     distance -= DISTANCE_DRAIN_PER_SECOND * (deltaTime / 1000);
     distance = max(0, distance);
 
+    if (!removedFinalTwoObstacles && distance <= BASE_REVEAL_DISTANCE) {
+      removeRightmostObstacles(2);
+      removedFinalTwoObstacles = true;
+    }
+
     // Add one extra obstacle to each spawn wave every 400m traveled.
     let distanceTravelled = startingDistance - distance;
     if (distanceTravelled >= nextObstacleIncreaseAt) {
@@ -551,10 +666,10 @@ function draw() {
 
     // Spawn obstacles on a timer
     obstacleTimer++;
-    if (obstacleTimer >= obstacleInterval && distance > 150) { 
-    for (let i = 0; i < obstaclesPerWave; i++) {
-      spawnObstacle(i * 120);
-    }
+    if (obstacleTimer >= obstacleInterval && distance > BASE_REVEAL_DISTANCE) {
+      for (let i = 0; i < obstaclesPerWave; i++) {
+        spawnObstacle(i * 120);
+      }
       obstacleTimer = 0;
       // Slightly randomise next interval so it doesn't feel robotic
       obstacleInterval = floor(random(90, 160));
@@ -571,11 +686,7 @@ function draw() {
 
   let targetProgressPct = constrain(1 - distance / startingDistance, 0, 1);
   distanceBarDisplay = lerp(distanceBarDisplay, targetProgressPct, 0.08);
-  
-  if (activeEffect && millis() - activeEffectStartMs > ACTIVE_EFFECT_DURATION_MS) {
-  activeEffect = null;
-  statusText = "STABLE";
-}
+
   drawUI();
 
   if (millis() < lowAirWarningTextUntilMs) {
@@ -1194,6 +1305,10 @@ function draw() {
   if (!gameplayFrozen && airSupply <= 0) {
     gameState = "lose";
     stopMusic();
+    if (!playedLoseCue) {
+      sfxMC17();
+      playedLoseCue = true;
+    }
     drawLoseScreen();
     noLoop();
     return;
@@ -1202,6 +1317,10 @@ function draw() {
   if (!gameplayFrozen && distance <= 0) {
     gameState = "win";
     stopMusic();
+    if (!playedWinCue) {
+      sfxMC18();
+      playedWinCue = true;
+    }
     drawWinScreen();
     noLoop();
     return;
@@ -1263,7 +1382,8 @@ function updateAstronaut() {
   }
 
   if (shouldDrawAstronaut) {
-    let aw = 75, ah = 110;
+    let aw = 75,
+      ah = 110;
     let cx = astronautX + 25;
     let cy = astronautY + 40;
 
@@ -1318,33 +1438,40 @@ function drawMars() {
     if (s.x < 0) s.x += width;
     circle(s.x, s.y, 2);
   }
-  // Show destination rocket when close to the end
-  if (distance < 400) {
-    // Map distance to an X position: starts off-screen right, slides in as distance shrinks
-    let rocketScreenX = map(distance, 400, 0, width + 100, width - 80);
-    let rocketBob = sin(frameCount * 0.04) * 6;
-    image(imgRocket, rocketScreenX, 300 + rocketBob, 120, 120);
-  }
 
-  // -------------------------------------------------
-  // Floating Clouds
-  // -------------------------------------------------
-  for (let i = bgClouds.length - 1; i >= 0; i--) {
-    let c = bgClouds[i];
+  // Reveal the base during the final segment, once obstacle spawning has stopped.
+  if (imgBase && distance <= BASE_REVEAL_DISTANCE) {
+    // Start fully off-screen so the base eases in from the right instead of popping in.
+    const baseStartX = width + 380;
+    const baseCenterX = width / 2;
 
-    image(c.img, c.x, c.y, c.size, c.size * 0.55);
+    if (!baseRevealStarted) {
+      baseRevealX = baseStartX;
+      baseRevealStarted = true;
+    }
 
     if (!gameplayFrozen) {
-      c.x -= c.speed;
+      baseRevealX -= gameSpeed;
 
-      if (c.x < -c.size) {
-        bgClouds.splice(i, 1);
+      // Keep end timing locked: distance hits 0 exactly when base reaches center.
+      let remainingPct = constrain(
+        (baseRevealX - baseCenterX) / (baseStartX - baseCenterX),
+        0,
+        1,
+      );
+      distance = BASE_REVEAL_DISTANCE * remainingPct;
+
+      if (baseRevealX <= baseCenterX) {
+        baseRevealX = baseCenterX;
+        distance = 0;
       }
     }
-  }
 
-  if (!gameplayFrozen && bgClouds.length < 5 && random() < 0.005) {
-    spawnBgCloud();
+    drawImageFitCenter(imgBase, baseRevealX, 430, 720, 510);
+  } else {
+    baseRevealX = null;
+    baseRevealStarted = false;
+    removedFinalTwoObstacles = false;
   }
 
   // -------------------------------------------------
@@ -1357,7 +1484,6 @@ function drawMars() {
   // Soft highlight on the ground
   fill(210, 115, 70, 60);
   rect(0, 500, width, 8);
-
 }
 
 // =====================
@@ -1365,24 +1491,27 @@ function drawMars() {
 // =====================
 function drawObstacles() {
   if (hitCooldownFrames > 0 && !gameplayFrozen) hitCooldownFrames--;
- 
+
   for (let i = obstacles.length - 1; i >= 0; i--) {
     let o = obstacles[i];
- 
+
     // Draw rock image centred on its bounding box
     image(o.img, o.x + o.w / 2, o.y + o.h / 2, o.w, o.h);
- 
+
     if (!gameplayFrozen) {
       o.x -= gameSpeed;
-      if (o.x < -100) { obstacles.splice(i, 1); continue; }
- 
+      if (o.x < -100) {
+        obstacles.splice(i, 1);
+        continue;
+      }
+
       // Collision
-      let hit =
-        astronautX + 50 > o.x && astronautX < o.x + o.w &&
-        astronautY + 80 > o.y && astronautY < o.y + o.h;
+      let hit = obstacleHitAstronaut(o);
       if (hit) {
         airSupply -= 1;
-        if (hitCooldownFrames === 0) {
+
+        if (!o.hasHitAstronaut) {
+          o.hasHitAstronaut = true;
           sfxHit();
           blinkFramesLeft = BLINK_TOGGLES * BLINK_TOGGLE_EVERY;
           hitCooldownFrames = 20;
@@ -1475,24 +1604,41 @@ function drawUI() {
   fill(20, 39, 97);
   rect(barX, barY, barW * distanceBarDisplay, barH, 5);
 
-  image(imgRocket, barX + barW - 14, barY + barH / 2, 40, 40);
-
   fill(235);
   textSize(18);
   textAlign(LEFT, CENTER);
   text("PROGRESS TO BASE", barX + 8, barY + barH / 2 + 1);
 
   textAlign(RIGHT, CENTER);
-  text(floor(distance) + "m", barX + barW - 55, barY + barH / 2 + 1);
+  text(floor(distance) + "m", barX + barW - 8, barY + barH / 2 + 1);
 }
 
 // =====================
 // WIN / LOSE SCREENS
 // =====================
+function drawImageFitCenter(img, cx, cy, maxW, maxH) {
+  if (!img) return;
+
+  let aspect = 1;
+  if (img.width > 0 && img.height > 0) {
+    aspect = img.width / img.height;
+  }
+
+  let w = maxW;
+  let h = maxH;
+  if (w / h > aspect) {
+    w = h * aspect;
+  } else {
+    h = w / aspect;
+  }
+
+  image(img, cx, cy, w, h);
+}
+
 function drawLoseScreen() {
   background(8, 14, 34);
-  image(imgDeathPose, width / 2, height / 2 - 100, 80, 110);
-  fill(255, 0, 0, 175);
+  drawImageFitCenter(imgDeathPose, width / 2, height / 2 - 120, 100, 130);
+  fill(255, 0, 0, 150);
   textAlign(CENTER);
   textSize(45);
   text("YOU RAN OUT OF AIR!", width / 2, height / 2 - 20);
@@ -1506,15 +1652,16 @@ function drawLoseScreen() {
 
 function drawWinScreen() {
   background(8, 14, 34);
-  image(imgCelebratoryPose, width / 2, height / 2 - 100, 80, 110);
-  image(imgRocket, width / 2 + 120, height / 2 - 100, 150, 150);
+  const centerY = height / 2;
+
+  drawImageFitCenter(imgCelebratoryPose, width / 2, centerY - 70, 80, 110);
   fill(60, 180, 100);
   textSize(45);
   textAlign(CENTER);
-  text("MISSION ACCOMPLISHED!", width / 2, height / 2 - 20);
+  text("MISSION ACCOMPLISHED!", width / 2, centerY + 18);
   textSize(24);
   fill(255, 255, 255, 175);
-  text("Press R to play again", width / 2, height / 2 + 40);
+  text("Press R to play again", width / 2, centerY + 68);
 }
 
 // =====================
@@ -1534,7 +1681,7 @@ function drawStartScreen() {
 
   if (launchTransitionActive) {
     launchRocketX += 8;
-    drawRocketPlaceholder(launchRocketX, launchRocketY, 110);
+    drawStartRocket(launchRocketX, launchRocketY, START_ROCKET_SIZE);
 
     screenFadeAlpha = min(255, screenFadeAlpha + 6);
     noStroke();
@@ -1555,7 +1702,11 @@ function drawStartScreen() {
   const rocketBobY = sin(frameCount * 0.03) * 8;
   const rocketTargetBaseY = showTutorialMessage ? 230 : 300;
   rocketBaseYDisplay = lerp(rocketBaseYDisplay, rocketTargetBaseY, 0.05);
-  drawRocketPlaceholder(width / 2, rocketBaseYDisplay + rocketBobY, 110);
+  drawStartRocket(
+    width / 2,
+    rocketBaseYDisplay + rocketBobY,
+    START_ROCKET_SIZE,
+  );
 
   if (showTutorialMessage) {
     const copyButtonX = width / 2 - COPY_BUTTON_W / 2;
@@ -1750,30 +1901,26 @@ function drawStartScreen() {
   text("TUTORIAL", tutorialX + buttonW / 2, buttonY + buttonH / 2 + 1);
 }
 
-function drawRocketPlaceholder(cx, cy, size) {
-  noStroke();
+function drawStartRocket(cx, cy, size) {
+  if (!imgRocket2) return;
 
-  // Main rocket body: triangle laying on its side (pointing right).
-  fill(220, 230, 255, 230);
-  triangle(
-    cx + size * 0.55,
-    cy,
-    cx - size * 0.45,
-    cy - size * 0.35,
-    cx - size * 0.45,
-    cy + size * 0.35,
-  );
+  let maxW = size * 1.4;
+  let maxH = size;
+  let aspect = 1;
 
-  // Small exhaust glow at the back for readability.
-  fill(255, 180, 90, 180);
-  triangle(
-    cx - size * 0.45,
-    cy,
-    cx - size * 0.68,
-    cy - size * 0.14,
-    cx - size * 0.68,
-    cy + size * 0.14,
-  );
+  if (imgRocket2.width > 0 && imgRocket2.height > 0) {
+    aspect = imgRocket2.width / imgRocket2.height;
+  }
+
+  let w = maxW;
+  let h = maxH;
+  if (w / h > aspect) {
+    w = h * aspect;
+  } else {
+    h = w / aspect;
+  }
+
+  image(imgRocket2, cx, cy, w, h);
 }
 
 function drawPausedScreen() {
@@ -1906,6 +2053,11 @@ function resetGameToStart() {
   screenFadeAlpha = 0;
   launchRocketX = 0;
   launchRocketY = 300;
+  baseRevealX = null;
+  baseRevealStarted = false;
+  removedFinalTwoObstacles = false;
+  playedLoseCue = false;
+  playedWinCue = false;
 
   restartMusic();
 
@@ -2432,7 +2584,7 @@ function drawStardust() {
     let d = stardustParticles[i];
 
     // Float up and down with a slow sine wave
-    d.y = d.baseY + sin(frameCount * 0.035 + d.floatPhase) * 10;
+    d.y = d.baseY + sin(frameCount * 0.035 + d.floatPhase) * 16;
     d.x -= gameSpeed * 0.75; // slightly slower than obstacles for readability
 
     // Remove once it scrolls off screen
