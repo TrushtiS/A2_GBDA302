@@ -161,7 +161,7 @@ let imgPurpleCrystal
 let imgPurpleSmallCrystal;
 let imgVolcano1
 let imgVolcano2;
-let imgBackground;
+let imgRocket;
 
 // Rock images array 
 let rockImages = [];
@@ -239,8 +239,7 @@ function preload() {
   imgPurpleSmallCrystal= loadImage("assets/image/purplesmallcrystal.png");
   imgVolcano1 = loadImage("assets/image/volcanoe1.png");
   imgVolcano2 = loadImage("assets/image/volcanoe2.png");
-  imgBackground = loadImage("assets/image/background.png");
-}
+  imgRocket = loadImage("assets/image/rocket.png");}
 
 // Plays the hit SFX — cloneNode lets it overlap itself on rapid hits
 function sfxHit() {
@@ -521,7 +520,6 @@ function draw() {
   }
 
   imageMode(CORNER);
-  image(imgBackground, 0, 0, width, height);
   imageMode(CENTER);
 
   drawMars();
@@ -553,10 +551,10 @@ function draw() {
 
     // Spawn obstacles on a timer
     obstacleTimer++;
-    if (obstacleTimer >= obstacleInterval) {
-      for (let i = 0; i < obstaclesPerWave; i++) {
-        spawnObstacle(i * 120);
-      }
+    if (obstacleTimer >= obstacleInterval && distance > 150) { 
+    for (let i = 0; i < obstaclesPerWave; i++) {
+      spawnObstacle(i * 120);
+    }
       obstacleTimer = 0;
       // Slightly randomise next interval so it doesn't feel robotic
       obstacleInterval = floor(random(90, 160));
@@ -1320,6 +1318,13 @@ function drawMars() {
     if (s.x < 0) s.x += width;
     circle(s.x, s.y, 2);
   }
+  // Show destination rocket when close to the end
+  if (distance < 400) {
+    // Map distance to an X position: starts off-screen right, slides in as distance shrinks
+    let rocketScreenX = map(distance, 400, 0, width + 100, width - 80);
+    let rocketBob = sin(frameCount * 0.04) * 6;
+    image(imgRocket, rocketScreenX, 300 + rocketBob, 120, 120);
+  }
 
   // -------------------------------------------------
   // Floating Clouds
@@ -1470,13 +1475,15 @@ function drawUI() {
   fill(20, 39, 97);
   rect(barX, barY, barW * distanceBarDisplay, barH, 5);
 
+  image(imgRocket, barX + barW - 14, barY + barH / 2, 40, 40);
+
   fill(235);
   textSize(18);
   textAlign(LEFT, CENTER);
   text("PROGRESS TO BASE", barX + 8, barY + barH / 2 + 1);
 
   textAlign(RIGHT, CENTER);
-  text(floor(distance) + "m", barX + barW - 10, barY + barH / 2 + 1);
+  text(floor(distance) + "m", barX + barW - 55, barY + barH / 2 + 1);
 }
 
 // =====================
@@ -1500,6 +1507,7 @@ function drawLoseScreen() {
 function drawWinScreen() {
   background(8, 14, 34);
   image(imgCelebratoryPose, width / 2, height / 2 - 100, 80, 110);
+  image(imgRocket, width / 2 + 120, height / 2 - 100, 150, 150);
   fill(60, 180, 100);
   textSize(45);
   textAlign(CENTER);
