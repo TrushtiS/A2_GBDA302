@@ -1,6 +1,6 @@
 # The Unlucky Astronaut
 
-Group Number: 3B
+**Group Number: 3B**
 
 ## Description
 
@@ -33,6 +33,7 @@ The game integrates the experience of Multiple Chemical Sensitivity (MCS) throug
 ## Setup and Interaction Instructions
 
 **Running the Sketch**
+
 To run the sketch locally, open index.html in Google Chrome using Live Server.
 
 **Game Objective**
